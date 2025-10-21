@@ -6,8 +6,9 @@ export interface Post {
   readonly id: string; // MongoDB ObjectId를 문자열로 변환
   title: string; // 게시글 제목
   content: string; // 게시글 본문
-  readonly created_at: string; // 게시글 생성 날짜; ISO 8601 날짜 문자열
+  readonly createdAt: string; // 게시글 생성 날짜; ISO 8601 날짜 문자열
   likes: number; // 좋아요 수
+  commentCount: number; // 댓글 수
 }
 
 /**

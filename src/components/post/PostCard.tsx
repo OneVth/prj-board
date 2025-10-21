@@ -29,7 +29,7 @@ function PostCard({ post }: PostCardProps) {
           <div className="flex-1">
             <p className="font-semibold">{post.title}</p>
             <p className="text-sm text-gray-500">
-              {formatTime(post.created_at)}
+              {formatTime(post.createdAt)}
             </p>
           </div>
         </div>
@@ -40,7 +40,7 @@ function PostCard({ post }: PostCardProps) {
         {/* Engagement Bar */}
         <div className="flex items-center gap-4 text-gray-500 text-sm">
           <span>❤️ {post.likes}</span>
-          <span>💬 0</span>
+          <span>💬 {post.commentCount}</span>
         </div>
       </article>
     </Link>

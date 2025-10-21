@@ -1,9 +1,11 @@
 import { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { postService } from "../services/postService";
+import { commentService } from "../services/commentService";
 import { formatTime } from "../utils/dateFormat";
-import { LoadingSpinner } from "../components/common";
+import { LoadingSpinner, CommentForm, CommentList } from "../components";
 import type { Post } from "../types/post";
+import type { Comment, CommentFormData } from "../types/comment";
 
 // ============================================
 // State와 Action 타입 정의
@@ -16,6 +18,11 @@ type ArticleState = {
   isLiked: boolean;
   liking: boolean;
   deleting: boolean;
+  // Comment states
+  comments: Comment[];
+  commentsLoading: boolean;
+  commentsError: string | null;
+  submittingComment: boolean;
 };
 
 type ArticleAction =
@@ -27,7 +34,15 @@ type ArticleAction =
   | { type: "LIKE_ERROR" }
   | { type: "DELETE_START" }
   | { type: "DELETE_SUCCESS" }
-  | { type: "DELETE_ERROR"; payload: string };
+  | { type: "DELETE_ERROR"; payload: string }
+  // Comment actions
+  | { type: "COMMENTS_FETCH_START" }
+  | { type: "COMMENTS_FETCH_SUCCESS"; payload: Comment[] }
+  | { type: "COMMENTS_FETCH_ERROR"; payload: string }
+  | { type: "COMMENT_SUBMIT_START" }
+  | { type: "COMMENT_SUBMIT_SUCCESS"; payload: Comment }
+  | { type: "COMMENT_SUBMIT_ERROR" }
+  | { type: "COMMENT_DELETE_SUCCESS"; payload: string };
 
 // ============================================
 // Reducer 함수
@@ -66,6 +81,33 @@ function articleReducer(
       return { ...state, deleting: false };
     case "DELETE_ERROR":
       return { ...state, deleting: false, error: action.payload };
+    // Comment actions
+    case "COMMENTS_FETCH_START":
+      return { ...state, commentsLoading: true, commentsError: null };
+    case "COMMENTS_FETCH_SUCCESS":
+      return {
+        ...state,
+        commentsLoading: false,
+        comments: action.payload,
+        commentsError: null,
+      };
+    case "COMMENTS_FETCH_ERROR":
+      return { ...state, commentsLoading: false, commentsError: action.payload };
+    case "COMMENT_SUBMIT_START":
+      return { ...state, submittingComment: true };
+    case "COMMENT_SUBMIT_SUCCESS":
+      return {
+        ...state,
+        submittingComment: false,
+        comments: [...state.comments, action.payload],
+      };
+    case "COMMENT_SUBMIT_ERROR":
+      return { ...state, submittingComment: false };
+    case "COMMENT_DELETE_SUCCESS":
+      return {
+        ...state,
+        comments: state.comments.filter((c) => c.id !== action.payload),
+      };
     default:
       return state;
   }
@@ -82,6 +124,10 @@ const initialState: ArticleState = {
   isLiked: false,
   liking: false,
   deleting: false,
+  comments: [],
+  commentsLoading: false,
+  commentsError: null,
+  submittingComment: false,
 };
 
 // ============================================
@@ -122,6 +168,32 @@ function Article() {
     }
   }, [id]);
 
+  // 댓글 불러오기
+  useEffect(() => {
+    const loadComments = async () => {
+      if (!id) return;
+
+      dispatch({ type: "COMMENTS_FETCH_START" });
+
+      try {
+        const comments = await commentService.getCommentsByPostId(id);
+        dispatch({ type: "COMMENTS_FETCH_SUCCESS", payload: comments });
+      } catch (error) {
+        dispatch({
+          type: "COMMENTS_FETCH_ERROR",
+          payload:
+            error instanceof Error
+              ? error.message
+              : "Failed to load comments",
+        });
+      }
+    };
+
+    if (state.post) {
+      loadComments();
+    }
+  }, [id, state.post]);
+
   // 좋아요 핸들러
   const handleLike = async () => {
     if (!id || state.liking) return;
@@ -159,6 +231,33 @@ function Article() {
         payload:
           error instanceof Error ? error.message : "Failed to delete post",
       });
+    }
+  };
+
+  // 댓글 작성 핸들러
+  const handleCommentSubmit = async (data: CommentFormData) => {
+    if (!id) return;
+
+    dispatch({ type: "COMMENT_SUBMIT_START" });
+
+    try {
+      const newComment = await commentService.createComment(id, data);
+      dispatch({ type: "COMMENT_SUBMIT_SUCCESS", payload: newComment });
+    } catch (error) {
+      dispatch({ type: "COMMENT_SUBMIT_ERROR" });
+      console.error("Failed to create comment:", error);
+      alert("댓글 작성에 실패했습니다.");
+    }
+  };
+
+  // 댓글 삭제 핸들러
+  const handleCommentDelete = async (commentId: string) => {
+    try {
+      await commentService.deleteComment(commentId);
+      dispatch({ type: "COMMENT_DELETE_SUCCESS", payload: commentId });
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      throw error; // CommentItem에서 에러 처리
     }
   };
 
@@ -241,7 +340,7 @@ function Article() {
           <div>
             <p className="font-semibold text-lg">{post.title}</p>
             <p className="text-sm text-gray-500">
-              {formatTime(post.created_at)}
+              {formatTime(post.createdAt)}
             </p>
           </div>
         </div>
@@ -269,7 +368,7 @@ function Article() {
           </button>
           <button className="flex items-center gap-2 text-gray-400 hover:text-blue-500 transition-colors">
             <span className="text-2xl">💬</span>
-            <span className="font-semibold">0</span>
+            <span className="font-semibold">{state.comments.length}</span>
           </button>
           <button className="flex items-center gap-2 text-gray-400 hover:text-green-500 transition-colors">
             <span className="text-2xl">📤</span>
@@ -277,12 +376,30 @@ function Article() {
           </button>
         </div>
 
-        {/* Comments Section Placeholder */}
+        {/* Comments Section */}
         <section className="mt-8">
-          <h2 className="text-xl font-bold mb-4">Comments</h2>
-          <div className="text-center py-12 text-gray-500">
-            <p className="text-lg">No comments yet</p>
-            <p className="text-sm mt-2">Be the first to comment!</p>
+          {/* Comments List */}
+          {state.commentsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : state.commentsError ? (
+            <div className="text-center py-8 text-red-400">
+              {state.commentsError}
+            </div>
+          ) : (
+            <CommentList
+              comments={state.comments}
+              onDelete={handleCommentDelete}
+            />
+          )}
+
+          {/* Comment Form */}
+          <div className="mt-6">
+            <CommentForm
+              onSubmit={handleCommentSubmit}
+              isSubmitting={state.submittingComment}
+            />
           </div>
         </section>
       </main>

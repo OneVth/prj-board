@@ -78,6 +78,51 @@ class PostUpdate(BaseModel):
     }
 
 
+class CommentCreate(BaseModel):
+    """
+    댓글 작성 시 사용하는 모델
+    - content: 댓글 내용 (필수)
+    - author: 작성자 이름 (필수, 임시)
+    """
+
+    content: str = Field(..., min_length=1, max_length=500, description="댓글 내용")
+    author: str = Field(..., min_length=1, max_length=50, description="작성자 이름")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"content": "좋은 글이네요!", "author": "익명"}]
+        }
+    }
+
+
+class CommentResponse(BaseModel):
+    """
+    댓글 응답 모델
+    - id: 댓글 ID
+    - post_id: 게시글 ID
+    - content: 댓글 내용
+    - author: 작성자 이름
+    - created_at: 생성 시간
+    - likes: 좋아요 수
+    """
+
+    id: str
+    post_id: str
+    content: str
+    author: str
+    created_at: str
+    likes: int = 0
+
+    model_config = {
+        "populate_by_name": True,
+        "alias_generator": lambda field_name: "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(field_name.split("_"))
+        ),
+        "by_alias": True,
+    }
+
+
 class PostResponse(BaseModel):
     """
     게시글 응답 모델
@@ -86,6 +131,7 @@ class PostResponse(BaseModel):
     - content: 게시글 본문
     - created_at: 생성 시간 (ISO 8601 형식)
     - likes: 좋아요 수
+    - comment_count: 댓글 수
     """
 
     id: str
@@ -93,9 +139,16 @@ class PostResponse(BaseModel):
     content: str
     created_at: str
     likes: int = 0
+    comment_count: int = 0
 
     model_config = {
         "populate_by_name": True,
+        # camelCase로 직렬화
+        "alias_generator": lambda field_name: "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(field_name.split("_"))
+        ),
+        "by_alias": True,
         "json_schema_extra": {
             "examples": [
                 {
@@ -104,6 +157,7 @@ class PostResponse(BaseModel):
                     "content": "게시글 내용입니다.",
                     "created_at": "2025-10-21T10:30:00.000Z",
                     "likes": 5,
+                    "commentCount": 3,
                 }
             ]
         },
@@ -140,16 +194,35 @@ class PostListResponse(BaseModel):
 # ============================================
 
 
-def post_helper(post) -> dict:
+async def post_helper(post) -> dict:
     """
     MongoDB 문서를 PostResponse 형식으로 변환
+    댓글 수를 함께 계산하여 반환
     """
+    comments_collection = database["comments"]
+    comment_count = await comments_collection.count_documents({"post_id": post["_id"]})
+
     return {
         "id": str(post["_id"]),  # _id를 id로 변환하여 프론트엔드에 전달
         "title": post["title"],
         "content": post["content"],
         "created_at": post.get("created_at", "1970-01-01T00:00:00.000Z"),
         "likes": post.get("likes", 0),
+        "comment_count": comment_count,
+    }
+
+
+def comment_helper(comment) -> dict:
+    """
+    MongoDB 문서를 CommentResponse 형식으로 변환
+    """
+    return {
+        "id": str(comment["_id"]),
+        "post_id": str(comment["post_id"]),
+        "content": comment["content"],
+        "author": comment["author"],
+        "created_at": comment.get("created_at", "1970-01-01T00:00:00.000Z"),
+        "likes": comment.get("likes", 0),
     }
 
 
@@ -302,8 +375,13 @@ async def get_posts(page: int = 1, limit: int = 10):
     # 전체 페이지 수 계산
     total_pages = (total_posts + limit - 1) // limit
 
+    # 각 게시글에 대해 댓글 수를 포함하여 변환
+    posts_with_comments = []
+    for post in posts:
+        posts_with_comments.append(await post_helper(post))
+
     return {
-        "posts": [post_helper(post) for post in posts],
+        "posts": posts_with_comments,
         "total_posts": total_posts,
         "current_page": page,
         "total_pages": total_pages,
@@ -329,7 +407,7 @@ async def get_post(post_id: str):
             detail=f"Post with id {post_id} not found",
         )
 
-    return post_helper(post)
+    return await post_helper(post)
 
 
 @app.post(
@@ -360,7 +438,7 @@ async def create_post(post: PostCreate):
     # 삽입된 문서 조회
     created_post = await posts_collection.find_one({"_id": result.inserted_id})
 
-    return post_helper(created_post)
+    return await post_helper(created_post)
 
 
 @app.put("/api/posts/{post_id}", response_model=PostResponse, tags=["Posts"])
@@ -404,7 +482,7 @@ async def update_post(post_id: str, post: PostUpdate):
     # 업데이트된 문서 조회
     updated_post = await posts_collection.find_one({"_id": object_id})
 
-    return post_helper(updated_post)
+    return await post_helper(updated_post)
 
 
 @app.delete("/api/posts/{post_id}", tags=["Posts"])
@@ -457,4 +535,99 @@ async def like_post(post_id: str):
     # 업데이트된 문서 조회
     updated_post = await posts_collection.find_one({"_id": object_id})
 
-    return post_helper(updated_post)
+    return await post_helper(updated_post)
+
+
+# ============================================
+# Comment API 엔드포인트
+# ============================================
+
+
+@app.post(
+    "/api/posts/{post_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Comments"],
+)
+async def create_comment(post_id: str, comment: CommentCreate):
+    """
+    댓글 작성
+    - **post_id**: 게시글 ID
+    - **content**: 댓글 내용
+    - **author**: 작성자 이름
+    """
+    # 게시글 존재 확인
+    post_object_id = validate_object_id(post_id)
+    posts_collection = database["posts"]
+    post = await posts_collection.find_one({"_id": post_object_id})
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    # 댓글 생성
+    comments_collection = database["comments"]
+    new_comment = {
+        "post_id": post_object_id,
+        "content": comment.content,
+        "author": comment.author,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "likes": 0,
+    }
+
+    result = await comments_collection.insert_one(new_comment)
+    created_comment = await comments_collection.find_one({"_id": result.inserted_id})
+
+    return comment_helper(created_comment)
+
+
+@app.get("/api/posts/{post_id}/comments", response_model=list[CommentResponse], tags=["Comments"])
+async def get_comments(post_id: str):
+    """
+    특정 게시글의 댓글 목록 조회
+    - **post_id**: 게시글 ID
+    """
+    # 게시글 존재 확인
+    post_object_id = validate_object_id(post_id)
+    posts_collection = database["posts"]
+    post = await posts_collection.find_one({"_id": post_object_id})
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    # 댓글 조회 (생성 시간 오름차순)
+    comments_collection = database["comments"]
+    cursor = comments_collection.find({"post_id": post_object_id}).sort("created_at", 1)
+    comments = await cursor.to_list(length=None)
+
+    return [comment_helper(comment) for comment in comments]
+
+
+@app.delete(
+    "/api/comments/{comment_id}",
+    response_model=dict,
+    tags=["Comments"],
+)
+async def delete_comment(comment_id: str):
+    """
+    댓글 삭제
+    - **comment_id**: 댓글 ID
+    """
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(comment_id)
+
+    comments_collection = database["comments"]
+
+    # 댓글 삭제
+    result = await comments_collection.delete_one({"_id": object_id})
+
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment with id {comment_id} not found",
+        )
+
+    return {"message": "Comment deleted successfully"}
