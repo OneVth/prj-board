@@ -88,7 +88,7 @@ class PostResponse(BaseModel):
     - likes: 좋아요 수
     """
 
-    id: str = Field(..., alias="_id")
+    id: str
     title: str
     content: str
     created_at: str
@@ -135,7 +135,7 @@ def post_helper(post) -> dict:
     MongoDB 문서를 PostResponse 형식으로 변환
     """
     return {
-        "_id": str(post["_id"]),
+        "id": str(post["_id"]),  # _id를 id로 변환하여 프론트엔드에 전달
         "title": post["title"],
         "content": post["content"],
         "created_at": post.get("created_at", "1970-01-01T00:00:00.000Z"),
