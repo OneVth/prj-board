@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
@@ -216,6 +217,20 @@ app = FastAPI(
     description="소셜 미디어 스타일 게시판 API",  # API 설명
     version="1.0.0",  # API 버전
     lifespan=lifespan,  # 생명주기 관리
+)
+
+# CORS 미들웨어 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite default
+        "http://localhost:5174",  # Vite alternative port
+        "http://localhost:5175",
+        "http://localhost:5176",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # GET, POST, PUT, DELETE, PATCH 모두 허용
+    allow_headers=["*"],  # Content-Type, Authorization 등 모두 허용
 )
 
 
