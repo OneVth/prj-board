@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from typing import Optional
 from bson import ObjectId
+from datetime import datetime
+
 
 # MongoDB 연결 설정
 MONGO_URL = "mongodb://localhost:27017"
@@ -135,9 +137,29 @@ def post_helper(post) -> dict:
         "_id": str(post["_id"]),
         "title": post["title"],
         "content": post["content"],
-        "created_at": post["created_at"],
+        "created_at": post.get("created_at", "1970-01-01T00:00:00.000Z"),
         "likes": post.get("likes", 0),
     }
+
+
+def validate_object_id(post_id: str) -> ObjectId:
+    """
+    ObjectId 유효성 검증 및 변환
+
+    Args:
+        post_id: 검증할 ID 문자열
+
+    Returns:
+        ObjectId: 변환된 ObjectId 객체
+
+    Raises:
+        HTTPException: ID가 유효하지 않을 경우 400 에러
+    """
+    if not ObjectId.is_valid(post_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid post ID format"
+        )
+    return ObjectId(post_id)
 
 
 # ============================================
@@ -226,48 +248,188 @@ async def health_check():
 
 
 # ============================================
-# 테스트 엔드포인트 (모델 확인용)
+# CRUD API 엔드포인트
 # ============================================
 
 
-@app.post("/api/posts/test", response_model=PostResponse, tags=["Test"])
-async def test_post_create(post: PostCreate):
+@app.get("/api/posts", response_model=PostListResponse, tags=["Posts"])
+async def get_posts(page: int = 1, limit: int = 10):
     """
-    Pydantic 모델 테스트용 엔드포인트
-    실제로 데이터를 저장하지 않고 입력값을 그대로 반환합니다.
+    게시글 목록 조회 (페이지네이션)
+    - **page**: 페이지 번호 (기본값: 1)
+    - **limit**: 페이지당 게시글 수 (기본값: 10, 최대: 100)
     """
+    # limit 최대값 제한
+    limit = min(limit, 100)
+
+    # skip 계산 (오프셋)
+    skip = (page - 1) * limit
+
+    posts_collection = database["posts"]
+
+    # 전체 게시글 수
+    total_posts = await posts_collection.count_documents({})
+
+    # 페이지네이션된 게시글 조회 (created_at 내림차순)
+    cursor = posts_collection.find().sort("created_at", -1).skip(skip).limit(limit)
+    posts = await cursor.to_list(length=limit)
+
+    # 전체 페이지 수 계산
+    total_pages = (total_posts + limit - 1) // limit
+
     return {
-        "id": "507f1f77bcf86cd799439011",
+        "posts": [post_helper(post) for post in posts],
+        "total_posts": total_posts,
+        "current_page": page,
+        "total_pages": total_pages,
+    }
+
+
+@app.get("/api/posts/{post_id}", response_model=PostResponse, tags=["Posts"])
+async def get_post(post_id: str):
+    """
+    게시글 상세 조회
+    - **post_id**: 게시글 ID (MongoDB ObjectId)
+    """
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(post_id)
+
+    posts_collection = database["posts"]
+
+    # 게시글 조회
+    post = await posts_collection.find_one({"_id": object_id})
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    return post_helper(post)
+
+
+@app.post(
+    "/api/posts",
+    response_model=PostResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Posts"],
+)
+async def create_post(post: PostCreate):
+    """
+    게시글 작성
+    - **title**: 게시글 제목 (1-200자)
+    - **content**: 게시글 본문 (1자 이상)
+    """
+    posts_collection = database["posts"]
+
+    # 새 게시글 문서 생성
+    new_post = {
         "title": post.title,
         "content": post.content,
-        "created_at": "2025-10-21T10:30:00.000Z",
+        "created_at": datetime.utcnow().isoformat() + "Z",  # ISO 8601 형식
         "likes": 0,
     }
 
+    # MongoDB에 삽입
+    result = await posts_collection.insert_one(new_post)
 
-@app.get("/api/posts/test-list", response_model=PostListResponse, tags=["Test"])
-async def test_post_list():
+    # 삽입된 문서 조회
+    created_post = await posts_collection.find_one({"_id": result.inserted_id})
+
+    return post_helper(created_post)
+
+
+@app.put("/api/posts/{post_id}", response_model=PostResponse, tags=["Posts"])
+async def update_post(post_id: str, post: PostUpdate):
     """
-    PostListResponse 모델 테스트용 엔드포인트
+    게시글 수정
+    - **post_id**: 게시글 ID
+    - **title**: 수정할 제목 (선택)
+    - **content**: 수정할 본문 (선택)
     """
-    return {
-        "posts": [
-            {
-                "_id": "507f1f77bcf86cd799439011",
-                "title": "테스트 게시글 1",
-                "content": "테스트 내용 1",
-                "created_at": "2025-10-21T10:30:00.000Z",
-                "likes": 3,
-            },
-            {
-                "_id": "507f1f77bcf86cd799439012",
-                "title": "테스트 게시글 2",
-                "content": "테스트 내용 2",
-                "created_at": "2025-10-21T11:00:00.000Z",
-                "likes": 7,
-            },
-        ],
-        "total_posts": 2,
-        "current_page": 1,
-        "total_pages": 1,
-    }
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(post_id)
+
+    posts_collection = database["posts"]
+
+    # 업데이트할 필드만 추출 (None이 아닌 값만)
+    update_data = {}
+    if post.title is not None:
+        update_data["title"] = post.title
+    if post.content is not None:
+        update_data["content"] = post.content
+
+    # 업데이트할 데이터가 없으면 에러
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
+        )
+
+    # 게시글 업데이트
+    result = await posts_collection.update_one(
+        {"_id": object_id}, {"$set": update_data}
+    )
+
+    # 업데이트된 문서가 없으면 404
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    # 업데이트된 문서 조회
+    updated_post = await posts_collection.find_one({"_id": object_id})
+
+    return post_helper(updated_post)
+
+
+@app.delete("/api/posts/{post_id}", tags=["Posts"])
+async def delete_post(post_id: str):
+    """
+    게시글 삭제
+    - **post_id**: 게시글 ID
+    """
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(post_id)
+
+    posts_collection = database["posts"]
+
+    # 게시글 삭제
+    result = await posts_collection.delete_one({"_id": object_id})
+
+    # 삭제된 문서가 없으면 404
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    return {"message": f"Post with id {post_id} deleted successfully"}
+
+
+@app.patch("/api/posts/{post_id}/like", response_model=PostResponse, tags=["Posts"])
+async def like_post(post_id: str):
+    """
+    게시글 좋아요 증가
+    - **post_id**: 게시글 ID
+    """
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(post_id)
+
+    posts_collection = database["posts"]
+
+    # likes 필드 1 증가
+    result = await posts_collection.update_one(
+        {"_id": object_id}, {"$inc": {"likes": 1}}  # $inc: 숫자 증가 연산자
+    )
+
+    # 업데이트된 문서가 없으면 404
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    # 업데이트된 문서 조회
+    updated_post = await posts_collection.find_one({"_id": object_id})
+
+    return post_helper(updated_post)
