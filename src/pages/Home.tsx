@@ -33,14 +33,6 @@ function homeReducer(state: HomeState, action: HomeAction): HomeState {
     case "FETCH_SUCCESS":
       const newPage = state.page + 1;
       const newHasMore = newPage <= action.payload.totalPages;
-      console.log("📝 Reducer FETCH_SUCCESS:", {
-        currentPage: state.page,
-        newPage,
-        totalPages: action.payload.totalPages,
-        newHasMore,
-        postsAdded: action.payload.posts.length,
-        totalPostsNow: state.posts.length + action.payload.posts.length,
-      });
       return {
         ...state,
         loading: false,
@@ -90,10 +82,6 @@ function Home() {
   const loadPosts = useCallback(async () => {
     // 동기적 체크: 같은 틱에서 여러 번 호출되어도 중복 방지
     if (isFetchingRef.current || !stateRef.current.hasMore) {
-      console.log("🚫 loadPosts blocked:", {
-        isFetching: isFetchingRef.current,
-        hasMore: stateRef.current.hasMore,
-      });
       return;
     }
 
@@ -105,14 +93,7 @@ function Home() {
     try {
       // Use stateRef to get current page value (avoids stale closure)
       const currentPage = stateRef.current.page;
-      console.log("📡 Fetching page:", currentPage);
       const response = await postService.getAllPosts(currentPage, PAGE_SIZE);
-      console.log("✅ Response:", {
-        postsCount: response.posts.length,
-        currentPage: response.currentPage,
-        totalPages: response.totalPages,
-        totalPosts: response.totalPosts,
-      });
 
       dispatch({
         type: "FETCH_SUCCESS",
@@ -122,7 +103,6 @@ function Home() {
         },
       });
     } catch (error) {
-      console.error("❌ Fetch error:", error);
       dispatch({
         type: "FETCH_ERROR",
         payload:
