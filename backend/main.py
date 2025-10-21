@@ -124,6 +124,16 @@ class PostListResponse(BaseModel):
     current_page: int
     total_pages: int
 
+    model_config = {
+        "populate_by_name": True,
+        # camelCase로 직렬화
+        "alias_generator": lambda field_name: "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(field_name.split("_"))
+        ),
+        "by_alias": True,
+    }
+
 
 # ============================================
 # 헬퍼 함수
