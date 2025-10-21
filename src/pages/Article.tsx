@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { postService } from "../services/postService";
 import { formatTime } from "../utils/dateFormat";
+import { LoadingSpinner } from "../components/common";
 import type { Post } from "../types/post";
 
 // ============================================
@@ -167,11 +168,7 @@ function Article() {
 
   // Loading State
   if (state.loading) {
-    return (
-      <div className="min-h-screen bg-black flex justify-center items-center">
-        <div className="w-12 h-12 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // Error State

@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { postService } from "../services/postService";
 import { formatTime } from "../utils/dateFormat";
+import { LoadingSpinner } from "../components/common";
 import type { Post } from "../types/post";
 
 // ============================================
