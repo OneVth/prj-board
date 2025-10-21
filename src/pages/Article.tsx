@@ -14,6 +14,7 @@ type ArticleState = {
   error: string | null;
   isLiked: boolean;
   liking: boolean;
+  deleting: boolean;
 };
 
 type ArticleAction =
@@ -22,7 +23,10 @@ type ArticleAction =
   | { type: "FETCH_ERROR"; payload: string }
   | { type: "LIKE_START" }
   | { type: "LIKE_SUCCESS"; payload: Post }
-  | { type: "LIKE_ERROR" };
+  | { type: "LIKE_ERROR" }
+  | { type: "DELETE_START" }
+  | { type: "DELETE_SUCCESS" }
+  | { type: "DELETE_ERROR"; payload: string };
 
 // ============================================
 // Reducer 함수
@@ -55,6 +59,12 @@ function articleReducer(
       };
     case "LIKE_ERROR":
       return { ...state, liking: false };
+    case "DELETE_START":
+      return { ...state, deleting: true, error: null };
+    case "DELETE_SUCCESS":
+      return { ...state, deleting: false };
+    case "DELETE_ERROR":
+      return { ...state, deleting: false, error: action.payload };
     default:
       return state;
   }
@@ -70,6 +80,7 @@ const initialState: ArticleState = {
   error: null,
   isLiked: false,
   liking: false,
+  deleting: false,
 };
 
 // ============================================
@@ -125,6 +136,31 @@ function Article() {
     }
   };
 
+  // 삭제 핸들러
+  const handleDelete = async () => {
+    if (!id || state.deleting) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this post? This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    dispatch({ type: "DELETE_START" });
+
+    try {
+      await postService.deletePost(id);
+      dispatch({ type: "DELETE_SUCCESS" });
+      navigate("/");
+    } catch (error) {
+      dispatch({
+        type: "DELETE_ERROR",
+        payload:
+          error instanceof Error ? error.message : "Failed to delete post",
+      });
+    }
+  };
+
   // ============================================
   // 렌더링
   // ============================================
@@ -168,15 +204,33 @@ function Article() {
           <button
             onClick={() => navigate("/")}
             className="text-gray-400 hover:text-white transition-colors"
+            disabled={state.deleting}
           >
             ← Back
           </button>
-          <Link
-            to={`/edit/${post.id}`}
-            className="px-4 py-2 bg-white font-bold text-black rounded-full hover:bg-gray-200 transition-colors"
-          >
-            Edit
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={state.deleting}
+              className={`px-4 py-2 rounded-full font-semibold transition-colors ${
+                state.deleting
+                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              {state.deleting ? "Deleting..." : "Delete"}
+            </button>
+            <Link
+              to={`/edit/${post.id}`}
+              className={`px-4 py-2 bg-white font-bold text-black rounded-full transition-colors ${
+                state.deleting
+                  ? "pointer-events-none opacity-50"
+                  : "hover:bg-gray-200"
+              }`}
+            >
+              Edit
+            </Link>
+          </div>
         </div>
       </header>
 
