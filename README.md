@@ -142,7 +142,7 @@ prj-board/
 │   │   ├── Article.tsx     # Post detail with comments
 │   │   ├── New.tsx         # Create post with image upload
 │   │   ├── Edit.tsx        # Edit post
-│   │   ├── Profile.tsx     # User profile with Posts/Comments tabs
+│   │   ├── Profile.tsx     # User profile with Posts/Comments tabs + followers/following modal
 │   │   ├── Search.tsx      # User search page
 │   │   ├── Login.tsx       # User login
 │   │   ├── Register.tsx    # User registration
@@ -150,6 +150,8 @@ prj-board/
 │   ├── components/         # Reusable components
 │   │   ├── post/           # Post-related components
 │   │   ├── comment/        # Comment-related components
+│   │   ├── user/           # User-related components
+│   │   │   └── UserListModal.tsx  # Followers/Following list modal
 │   │   └── ProtectedRoute.tsx
 │   ├── contexts/           # React Context
 │   │   └── AuthContext.tsx # Authentication state
@@ -180,6 +182,7 @@ prj-board/
 │   │   └── exceptions.py   # Custom exceptions
 │   ├── models/             # Pydantic models
 │   ├── utils/              # Helper functions
+│   ├── seed_data.py        # Dummy data generation script
 │   ├── .env                # Environment variables
 │   └── requirements.txt
 ├── docker-compose.yml      # MongoDB configuration
@@ -212,6 +215,8 @@ prj-board/
 - **User profiles** with Posts and Comments tabs
 - **User search** with real-time filtering
 - **Follow/Unfollow system** with follower/following counts
+- **Followers/Following list modal** - click counts to see detailed user lists
+- **Follow within modal** - follow/unfollow directly from the user list
 - **For You / Following feed tabs** - view all posts or only from followed users
 - Profile navigation from author names
 - **Non-authenticated browsing** - view profiles without login
@@ -260,6 +265,8 @@ prj-board/
 - `GET /api/users/{user_id}` - Get user profile with follower/following counts
 - `GET /api/users/{user_id}/posts?page={page}&limit={limit}` - Get user's posts
 - `GET /api/users/{user_id}/comments?page={page}&limit={limit}` - Get user's comments
+- `GET /api/users/{user_id}/followers` - Get user's followers list (optional auth for isFollowing status)
+- `GET /api/users/{user_id}/following` - Get users that this user follows (optional auth for isFollowing status)
 - `POST /api/users/{user_id}/follow` - Follow user (requires auth)
 - `DELETE /api/users/{user_id}/follow` - Unfollow user (requires auth)
 
@@ -294,6 +301,8 @@ prj-board/
    - See their posts and comments in separate tabs
    - Follow/Unfollow users
    - View follower/following counts
+   - **Click on Followers/Following counts** to see detailed user lists
+   - Follow/Unfollow directly from the modal
 
 5. **Search and follow**
    - Use the search page to find users
@@ -309,6 +318,23 @@ prj-board/
    - Logout to see protected routes redirect to login
    - Try accessing `/new` without auth
    - Verify you can't edit/delete other users' content
+
+## Dummy Data Generation
+
+To populate the database with test data for development:
+
+```bash
+cd backend
+python seed_data.py
+```
+
+This generates:
+- 10 test users (user0@example.com to user9@example.com, password: password123)
+- 100 posts with realistic content
+- 300 comments
+- Random follow relationships
+- Random likes on posts and comments
+- Database indexes for performance
 
 ## Learning Resources
 
