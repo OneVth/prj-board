@@ -8,9 +8,17 @@ export const commentService = {
   /**
    * 특정 게시글의 댓글 목록 조회
    * @param postId - 게시글 ID
+   * @param accessToken - Access Token (선택, is_liked 계산용)
    */
-  async getCommentsByPostId(postId: string): Promise<Comment[]> {
-    const response = await fetch(`${API_BASE_URL}/posts/${postId}/comments`);
+  async getCommentsByPostId(postId: string, accessToken?: string): Promise<Comment[]> {
+    const headers: HeadersInit = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/comments`, {
+      headers,
+    });
     return handleResponse<Comment[]>(response);
   },
 

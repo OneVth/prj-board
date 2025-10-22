@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from core.database import get_database
 from core.exceptions import NotFoundException, BadRequestException
-from core.security import get_current_user, TokenData
+from core.security import get_current_user, get_current_user_optional, TokenData
 from models import UserResponse, PostResponse, CommentResponse
 from utils import user_helper, post_helper, comment_helper, validate_object_id
 
@@ -79,7 +79,11 @@ async def get_user_profile(
 
 
 @router.get("/{user_id}/posts", response_model=list[PostResponse])
-async def get_user_posts(user_id: str, limit: int = 20):
+async def get_user_posts(
+    user_id: str,
+    limit: int = 20,
+    current_user: TokenData | None = Depends(get_current_user_optional),
+):
     """
     특정 사용자가 작성한 게시글 목록 조회
     - **user_id**: 사용자 ID
@@ -102,11 +106,16 @@ async def get_user_posts(user_id: str, limit: int = 20):
     cursor = posts_collection.find({"author_id": user_id}).sort("created_at", -1).limit(limit)
     posts = await cursor.to_list(length=limit)
 
-    return [await post_helper(post) for post in posts]
+    current_user_id = current_user.user_id if current_user else None
+    return [await post_helper(post, current_user_id) for post in posts]
 
 
 @router.get("/{user_id}/comments", response_model=list[CommentResponse])
-async def get_user_comments(user_id: str, limit: int = 20):
+async def get_user_comments(
+    user_id: str,
+    limit: int = 20,
+    current_user: TokenData | None = Depends(get_current_user_optional),
+):
     """
     특정 사용자가 작성한 댓글 목록 조회
     - **user_id**: 사용자 ID
@@ -129,7 +138,8 @@ async def get_user_comments(user_id: str, limit: int = 20):
     cursor = comments_collection.find({"author_id": user_id}).sort("created_at", -1).limit(limit)
     comments = await cursor.to_list(length=limit)
 
-    return [await comment_helper(comment) for comment in comments]
+    current_user_id = current_user.user_id if current_user else None
+    return [await comment_helper(comment, current_user_id) for comment in comments]
 
 
 @router.post("/{user_id}/follow", response_model=UserResponse)

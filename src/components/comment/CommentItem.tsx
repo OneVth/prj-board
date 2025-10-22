@@ -91,10 +91,14 @@ function CommentItem({ comment, onDelete, onLike }: CommentItemProps) {
           <button
             onClick={handleLike}
             disabled={liking}
-            className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors text-sm disabled:opacity-50"
+            className={`flex items-center gap-1 transition-colors text-sm disabled:opacity-50 ${
+              comment.isLiked
+                ? "text-red-400 hover:text-red-300"
+                : "text-gray-500 hover:text-pink-400"
+            }`}
             title="좋아요"
           >
-            <span className="text-base">♡</span>
+            <span className="text-base">{comment.isLiked ? "❤️" : "🤍"}</span>
             <span>{comment.likes}</span>
           </button>
         </div>

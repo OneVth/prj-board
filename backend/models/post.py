@@ -54,6 +54,7 @@ class PostResponse(BaseModel):
     author_id: str
     author_username: str
     image: str | None = None
+    is_liked: bool = False
 
     model_config = {
         "populate_by_name": True,

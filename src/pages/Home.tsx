@@ -171,7 +171,8 @@ function Home() {
           currentPage,
           PAGE_SIZE,
           currentSearch,
-          currentSort
+          currentSort,
+          accessToken || undefined
         );
       }
 

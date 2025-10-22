@@ -7,7 +7,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from core.database import get_database
-from core.security import get_current_user, TokenData
+from core.security import get_current_user, get_current_user_optional, TokenData
 from core.exceptions import NotFoundException, ForbiddenException, BadRequestException
 from models import PostCreate, PostUpdate, PostResponse, PostListResponse
 from utils import post_helper, validate_object_id
@@ -21,6 +21,7 @@ async def get_posts(
     limit: int = 10,
     q: str = None,
     sort: str = "date",
+    current_user: TokenData | None = Depends(get_current_user_optional),
 ):
     """
     게시글 목록 조회 (페이지네이션, 검색, 정렬)
@@ -117,11 +118,18 @@ async def get_posts(
                 "author_id": "$author_id",
                 "author_username": 1,
                 "image": 1,  # 이미지 필드 포함
+                "liked_by": {"$ifNull": ["$liked_by", []]},  # liked_by 배열 포함
             }
         },
     ]
 
     posts = await posts_collection.aggregate(pipeline).to_list(length=limit)
+
+    # Add is_liked field for each post
+    current_user_id = current_user.user_id if current_user else None
+    for post in posts:
+        liked_by = post.pop("liked_by", [])  # liked_by 제거하고 가져오기
+        post["is_liked"] = current_user_id in liked_by if current_user_id else False
 
     # 전체 페이지 수 계산
     total_pages = (total_posts + limit - 1) // limit
@@ -269,11 +277,17 @@ async def get_following_posts(
                 "author_id": "$author_id",
                 "author_username": 1,
                 "image": 1,
+                "liked_by": {"$ifNull": ["$liked_by", []]},  # liked_by 배열 포함
             }
         },
     ]
 
     posts = await posts_collection.aggregate(pipeline).to_list(length=limit)
+
+    # Add is_liked field for each post
+    for post in posts:
+        liked_by = post.pop("liked_by", [])  # liked_by 제거하고 가져오기
+        post["is_liked"] = current_user.user_id in liked_by
 
     # 전체 페이지 수 계산
     total_pages = (total_posts + limit - 1) // limit
@@ -287,7 +301,10 @@ async def get_following_posts(
 
 
 @router.get("/{post_id}", response_model=PostResponse)
-async def get_post(post_id: str):
+async def get_post(
+    post_id: str,
+    current_user: TokenData | None = Depends(get_current_user_optional),
+):
     """
     게시글 상세 조회
     - **post_id**: 게시글 ID (MongoDB ObjectId)
@@ -301,7 +318,8 @@ async def get_post(post_id: str):
     if not post:
         raise NotFoundException("Post", post_id)
 
-    return await post_helper(post)
+    current_user_id = current_user.user_id if current_user else None
+    return await post_helper(post, current_user_id)
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -331,7 +349,7 @@ async def create_post(
     result = await posts_collection.insert_one(new_post)
     created_post = await posts_collection.find_one({"_id": result.inserted_id})
 
-    return await post_helper(created_post)
+    return await post_helper(created_post, current_user.user_id)
 
 
 @router.put("/{post_id}", response_model=PostResponse)
@@ -374,7 +392,7 @@ async def update_post(
     await posts_collection.update_one({"_id": object_id}, {"$set": update_data})
     updated_post = await posts_collection.find_one({"_id": object_id})
 
-    return await post_helper(updated_post)
+    return await post_helper(updated_post, current_user.user_id)
 
 
 @router.delete("/{post_id}")
@@ -447,4 +465,4 @@ async def like_post(post_id: str, current_user: TokenData = Depends(get_current_
         )
 
     updated_post = await posts_collection.find_one({"_id": object_id})
-    return await post_helper(updated_post)
+    return await post_helper(updated_post, current_user.user_id)

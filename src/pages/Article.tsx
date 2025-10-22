@@ -66,6 +66,7 @@ function articleReducer(
         loading: false,
         post: action.payload,
         error: null,
+        isLiked: action.payload.isLiked,
       };
     case "FETCH_ERROR":
       return { ...state, loading: false, error: action.payload };
@@ -76,7 +77,7 @@ function articleReducer(
         ...state,
         liking: false,
         post: action.payload,
-        isLiked: true,
+        isLiked: action.payload.isLiked,
       };
     case "LIKE_ERROR":
       return { ...state, liking: false };
@@ -164,7 +165,7 @@ function Article() {
       dispatch({ type: "FETCH_START" });
 
       try {
-        const post = await postService.getPostById(id);
+        const post = await postService.getPostById(id, accessToken || undefined);
         dispatch({ type: "FETCH_SUCCESS", payload: post });
       } catch (error) {
         dispatch({
@@ -179,7 +180,7 @@ function Article() {
       isInitialMount.current = false;
       loadPost();
     }
-  }, [id]);
+  }, [id, accessToken]);
 
   // 댓글 불러오기
   useEffect(() => {
@@ -189,7 +190,7 @@ function Article() {
       dispatch({ type: "COMMENTS_FETCH_START" });
 
       try {
-        const comments = await commentService.getCommentsByPostId(id);
+        const comments = await commentService.getCommentsByPostId(id, accessToken || undefined);
         dispatch({ type: "COMMENTS_FETCH_SUCCESS", payload: comments });
       } catch (error) {
         dispatch({
@@ -205,7 +206,7 @@ function Article() {
     if (state.post) {
       loadComments();
     }
-  }, [id, state.post]);
+  }, [id, state.post, accessToken]);
 
   // 좋아요 핸들러
   const handleLike = async () => {

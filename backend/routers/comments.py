@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime
 
 from core.database import get_database
-from core.security import get_current_user, TokenData
+from core.security import get_current_user, get_current_user_optional, TokenData
 from models import CommentCreate, CommentResponse
 from utils import comment_helper, validate_object_id
 
@@ -53,11 +53,14 @@ async def create_comment(
     result = await comments_collection.insert_one(new_comment)
     created_comment = await comments_collection.find_one({"_id": result.inserted_id})
 
-    return await comment_helper(created_comment)
+    return await comment_helper(created_comment, current_user.user_id)
 
 
 @router.get("/api/posts/{post_id}/comments", response_model=list[CommentResponse])
-async def get_comments(post_id: str):
+async def get_comments(
+    post_id: str,
+    current_user: TokenData | None = Depends(get_current_user_optional),
+):
     """
     특정 게시글의 댓글 목록 조회
     - **post_id**: 게시글 ID
@@ -79,7 +82,8 @@ async def get_comments(post_id: str):
     cursor = comments_collection.find({"post_id": post_object_id}).sort("created_at", 1)
     comments = await cursor.to_list(length=None)
 
-    return [await comment_helper(comment) for comment in comments]
+    current_user_id = current_user.user_id if current_user else None
+    return [await comment_helper(comment, current_user_id) for comment in comments]
 
 
 @router.patch("/api/comments/{comment_id}/like", response_model=CommentResponse)
@@ -129,7 +133,7 @@ async def like_comment(comment_id: str, current_user: TokenData = Depends(get_cu
         )
 
     updated_comment = await comments_collection.find_one({"_id": object_id})
-    return await comment_helper(updated_comment)
+    return await comment_helper(updated_comment, current_user.user_id)
 
 
 @router.delete("/api/comments/{comment_id}", response_model=dict)
