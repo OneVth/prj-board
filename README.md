@@ -22,7 +22,9 @@ This project is created for hands-on practice with:
 - Vite
 - React Router v7
 - TailwindCSS v4
+- Framer Motion (animations)
 - React Context API
+- Lucide React (icons)
 
 ### Backend
 
@@ -192,12 +194,15 @@ prj-board/
 - Access token (15 min) + Refresh token (7 days) strategy
 - Access tokens in memory, Refresh tokens in HTTPOnly cookies
 - Protected routes for authenticated users only
+- **Optional authentication** - non-logged-in users can browse posts
 - Password hashing with bcrypt
 
 ### Post Management
 - Create, read, update, delete posts (CRUD)
-- **Image upload and display** (single image per post)
+- **Image upload and display** (single image per post, base64 encoding)
+- **500 character limit** for post content
 - Infinite scroll feed with pagination
+- **Persistent like state** - likes maintained across page navigation
 - **Like toggle system** (one like per user, prevent duplicates)
 - Author information display with profile links
 - Edit/Delete permissions (author only)
@@ -209,21 +214,27 @@ prj-board/
 - **Follow/Unfollow system** with follower/following counts
 - **For You / Following feed tabs** - view all posts or only from followed users
 - Profile navigation from author names
+- **Non-authenticated browsing** - view profiles without login
 
 ### Comment System
 - Create and delete comments
-- **Comment like functionality**
+- **Comment like functionality with persistent state**
+- **Visual like indicator** (❤️/🤍 emoji toggle)
 - Author information display with profile links
 - Delete permissions (author only)
 - Real-time comment count
 
-### UI/UX
-- Instagram/X-inspired dark theme
-- Responsive design with modern interactions
+### UI/UX Design
+- **Glassmorphism design system** - modern frosted glass effect
+- **Instagram/X-inspired dark theme** with purple-pink gradients
+- **Framer Motion animations** - smooth page transitions and interactions
+- **Animated tab navigation** - For You/Following and Profile tabs
+- **Sticky headers** with backdrop blur effects
+- **Gradient avatars** with first letter of username
+- **Modern action bars** with glassmorphic styling
+- **Responsive design** optimized for all screen sizes
 - Type-safe API communication
 - Loading states and error handling
-- Smooth transitions and animations
-- Avatar placeholders with gradient backgrounds
 - Optimized performance with custom hooks
 
 ## API Endpoints
