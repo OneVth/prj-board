@@ -37,6 +37,17 @@ export const commentService = {
   },
 
   /**
+   * 댓글 좋아요 증가
+   * @param commentId - 댓글 ID
+   */
+  async likeComment(commentId: string): Promise<Comment> {
+    const response = await fetch(`${API_BASE_URL}/comments/${commentId}/like`, {
+      method: "PATCH",
+    });
+    return handleResponse<Comment>(response);
+  },
+
+  /**
    * 댓글 삭제 (인증 필요, 본인만 가능)
    * @param commentId - 댓글 ID
    * @param accessToken - JWT 액세스 토큰

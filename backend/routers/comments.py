@@ -82,6 +82,32 @@ async def get_comments(post_id: str):
     return [await comment_helper(comment) for comment in comments]
 
 
+@router.patch("/api/comments/{comment_id}/like", response_model=CommentResponse)
+async def like_comment(comment_id: str):
+    """
+    댓글 좋아요 증가
+    - **comment_id**: 댓글 ID
+    """
+    database = get_database()
+    comments_collection = database["comments"]
+
+    object_id = validate_object_id(comment_id)
+
+    # likes 필드 1 증가
+    result = await comments_collection.update_one(
+        {"_id": object_id}, {"$inc": {"likes": 1}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment with id {comment_id} not found",
+        )
+
+    updated_comment = await comments_collection.find_one({"_id": object_id})
+    return await comment_helper(updated_comment)
+
+
 @router.delete("/api/comments/{comment_id}", response_model=dict)
 async def delete_comment(
     comment_id: str, current_user: TokenData = Depends(get_current_user)

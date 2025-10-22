@@ -8,13 +8,14 @@ import type { Comment } from "../../types/comment";
 interface CommentListProps {
   comments: Comment[];
   onDelete: (commentId: string) => Promise<void>;
+  onLike: (commentId: string) => Promise<void>;
 }
 
 // ============================================
 // CommentList 컴포넌트
 // ============================================
 
-function CommentList({ comments, onDelete }: CommentListProps) {
+function CommentList({ comments, onDelete, onLike }: CommentListProps) {
   if (comments.length === 0) {
     return (
       <div className="py-8 text-center text-gray-500">
@@ -29,7 +30,7 @@ function CommentList({ comments, onDelete }: CommentListProps) {
         댓글 {comments.length}개
       </h3>
       {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} onDelete={onDelete} />
+        <CommentItem key={comment.id} comment={comment} onDelete={onDelete} onLike={onLike} />
       ))}
     </div>
   );

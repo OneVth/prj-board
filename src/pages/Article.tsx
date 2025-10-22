@@ -43,7 +43,8 @@ type ArticleAction =
   | { type: "COMMENT_SUBMIT_START" }
   | { type: "COMMENT_SUBMIT_SUCCESS"; payload: Comment }
   | { type: "COMMENT_SUBMIT_ERROR" }
-  | { type: "COMMENT_DELETE_SUCCESS"; payload: string };
+  | { type: "COMMENT_DELETE_SUCCESS"; payload: string }
+  | { type: "COMMENT_LIKE_SUCCESS"; payload: Comment };
 
 // ============================================
 // Reducer 함수
@@ -108,6 +109,13 @@ function articleReducer(
       return {
         ...state,
         comments: state.comments.filter((c) => c.id !== action.payload),
+      };
+    case "COMMENT_LIKE_SUCCESS":
+      return {
+        ...state,
+        comments: state.comments.map((c) =>
+          c.id === action.payload.id ? action.payload : c
+        ),
       };
     default:
       return state;
@@ -265,6 +273,17 @@ function Article() {
     }
   };
 
+  // 댓글 좋아요 핸들러
+  const handleCommentLike = async (commentId: string) => {
+    try {
+      const updatedComment = await commentService.likeComment(commentId);
+      dispatch({ type: "COMMENT_LIKE_SUCCESS", payload: updatedComment });
+    } catch (error) {
+      console.error("Failed to like comment:", error);
+      throw error; // CommentItem에서 에러 처리
+    }
+  };
+
   // ============================================
   // 렌더링
   // ============================================
@@ -342,17 +361,17 @@ function Article() {
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 py-6">
         {/* Author Info */}
-        <div className="flex items-center gap-3 mb-6">
+        <Link to={`/profile/${post.authorId}`} className="flex items-center gap-3 mb-6 hover:opacity-80 transition-opacity w-fit">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
             {post.authorUsername?.[0]?.toUpperCase() || "?"}
           </div>
           <div>
-            <p className="font-semibold text-lg">{post.authorUsername || "Unknown"}</p>
+            <p className="font-semibold text-lg hover:underline">{post.authorUsername || "Unknown"}</p>
             <p className="text-sm text-gray-500">
               {formatTime(post.createdAt)}
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* Post Title */}
         <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
@@ -403,6 +422,7 @@ function Article() {
             <CommentList
               comments={state.comments}
               onDelete={handleCommentDelete}
+              onLike={handleCommentLike}
             />
           )}
 
