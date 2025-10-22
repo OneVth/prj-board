@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { userService } from "../services/userService";
 import { LoadingSpinner, PostCard, Header } from "../components";
 import { formatDate } from "../utils/dateFormat";
@@ -91,7 +92,9 @@ function Profile() {
       <Header />
 
       {/* Profile Header */}
-      <div className="max-w-2xl mx-auto px-4 py-6 border-b border-gray-800">
+      <div className="border-b border-white/10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto py-6">
         {/* Avatar */}
         <div className="flex items-start gap-4 mb-4">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold flex-shrink-0">
@@ -140,36 +143,53 @@ function Profile() {
             <span className="text-gray-500">Following</span>
           </div>
         </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="max-w-2xl mx-auto border-b border-gray-800">
-        <div className="flex">
+      <div className="border-b border-white/10 bg-black/50 backdrop-blur-sm sticky top-16 z-40">
+        <div className="max-w-2xl mx-auto flex relative">
           <button
             onClick={() => setActiveTab("posts")}
-            className={`flex-1 py-4 text-center transition-colors ${
+            className={`relative flex-1 py-4 text-center font-semibold transition-all duration-300 ${
               activeTab === "posts"
-                ? "text-white border-b-2 border-white"
+                ? "text-white"
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
             Posts
+            {activeTab === "posts" && (
+              <motion.div
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500"
+                layoutId="profileTab"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
           </button>
           <button
             onClick={() => setActiveTab("comments")}
-            className={`flex-1 py-4 text-center transition-colors ${
+            className={`relative flex-1 py-4 text-center font-semibold transition-all duration-300 ${
               activeTab === "comments"
-                ? "text-white border-b-2 border-white"
+                ? "text-white"
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
             Comments
+            {activeTab === "comments" && (
+              <motion.div
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500"
+                layoutId="profileTab"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <main className="max-w-2xl mx-auto">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto">
         {activeTab === "posts" ? (
           <div className="divide-y divide-gray-800">
             {posts.length === 0 ? (
@@ -185,6 +205,7 @@ function Profile() {
             <p>Comments view coming soon...</p>
           </div>
         )}
+        </div>
       </main>
     </div>
   );
