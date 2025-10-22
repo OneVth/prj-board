@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useCallback } from "react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { postService } from "../services/postService";
-import { PostCard, SearchBar } from "../components";
+import { PostCard, SearchBar, Header } from "../components";
 import { useAuth } from "../contexts/AuthContext";
 import type { Post } from "../types/post";
 
@@ -102,8 +102,7 @@ const initialState: HomeState = {
 // ============================================
 
 function Home() {
-  const navigate = useNavigate();
-  const { user, isAuthenticated, logout, accessToken } = useAuth();
+  const { isAuthenticated, accessToken } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [state, dispatch] = useReducer(homeReducer, {
     ...initialState,
@@ -272,67 +271,10 @@ function Home() {
   // 렌더링
   // ============================================
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Board</h1>
-
-          <div className="flex items-center gap-3">
-            <Link
-              to="/search"
-              className="text-gray-400 hover:text-white transition-colors p-2"
-              title="Search users"
-            >
-              <span className="text-xl">🔍</span>
-            </Link>
-            {isAuthenticated && user ? (
-              <>
-                <span className="text-sm text-gray-400">
-                  Hi, <span className="text-white font-medium">{user.username}</span>
-                </span>
-                <Link
-                  to="/new"
-                  className="px-4 py-2 bg-white font-bold text-black rounded-full hover:bg-gray-200 transition-colors"
-                >
-                  New Post
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 border border-gray-700 text-white rounded-full hover:bg-gray-900 transition-colors"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="px-4 py-2 border border-gray-700 text-white rounded-full hover:bg-gray-900 transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  className="px-4 py-2 bg-white font-bold text-black rounded-full hover:bg-gray-200 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Modern Header */}
+      <Header />
 
       {/* Feed Type Tabs - Only show for authenticated users */}
       {isAuthenticated && (

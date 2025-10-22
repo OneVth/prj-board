@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { userService } from "../services/userService";
 import { useAuth } from "../contexts/AuthContext";
-import { LoadingSpinner } from "../components";
 import type { User } from "../types/user";
 
 // ============================================
@@ -17,7 +16,7 @@ function Search() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [followingLoading, setFollowingLoading] = useState<Set<string>>(new Set());
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
 
   // 검색 실행
   const performSearch = async (searchQuery: string) => {
@@ -30,7 +29,7 @@ function Search() {
     setError(null);
 
     try {
-      const results = await userService.searchUsers(searchQuery, 20, accessToken);
+      const results = await userService.searchUsers(searchQuery, 20, accessToken || undefined);
       setUsers(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to search users");
