@@ -3,6 +3,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Article from "./pages/Article";
+import Profile from "./pages/Profile";
 import New from "./pages/New";
 import Edit from "./pages/Edit";
 import Login from "./pages/Login";
@@ -16,6 +17,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/article/:id" element={<Article />} />
+          <Route path="/profile/:userId" element={<Profile />} />
           <Route
             path="/new"
             element={
