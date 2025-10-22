@@ -1,19 +1,5 @@
 import type { Comment, CommentFormData } from "../types/comment";
-
-const API_BASE_URL = "http://localhost:8000/api";
-
-/**
- * API 에러 처리 헬퍼 함수
- */
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || `HTTP error! status: ${response.status}`
-    );
-  }
-  return response.json();
-}
+import { API_BASE_URL, handleResponse } from "./api";
 
 /**
  * Comment Service - 모든 댓글 관련 API 호출

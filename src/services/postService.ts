@@ -1,19 +1,5 @@
 import type { Post, PostFormData, PostListResponse } from "../types/post";
-
-const API_BASE_URL = "http://localhost:8000/api";
-
-/**
- * API 에러 처리 헬퍼 함수
- */
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || `HTTP error! status: ${response.status}`
-    );
-  }
-  return response.json();
-}
+import { API_BASE_URL, handleResponse } from "./api";
 
 /**
  * Post Service = 모든 게시글 관련 API 호출

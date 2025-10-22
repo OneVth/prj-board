@@ -23,8 +23,8 @@ function PostForm({
   initialTitle = "",
   initialContent = "",
   onSubmit,
-  onCancel,
-  submitButtonText,
+  onCancel: _onCancel,
+  submitButtonText: _submitButtonText,
   isSubmitting,
   error,
 }: PostFormProps) {

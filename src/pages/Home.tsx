@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useCallback } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { postService } from "../services/postService";
-import { LoadingSpinner, PostCard, SearchBar } from "../components";
+import { PostCard, SearchBar } from "../components";
 import { useAuth } from "../contexts/AuthContext";
 import type { Post } from "../types/post";
 
