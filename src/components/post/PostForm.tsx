@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
+import { motion } from "framer-motion";
+import { Image, X } from "lucide-react";
 import type { PostFormData } from "../../types/post";
 import { fileToBase64, validateImageFile, createThumbnail } from "../../utils/imageUtils";
+import { Button } from "../ui/button";
 
 // ============================================
 // Props 타입 정의
@@ -107,110 +110,126 @@ function PostForm({
     <>
       {/* Error Message */}
       {error && (
-        <div
-          className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400"
           role="alert"
         >
           ⚠️ {error}
-        </div>
+        </motion.div>
       )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit}>
-        {/* Title Input */}
-        <div className="mb-4">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            maxLength={TITLE_MAX_LENGTH}
-            className="w-full bg-transparent text-2xl font-bold placeholder-gray-600 focus:outline-none border-none"
-            disabled={isSubmitting}
-            autoFocus
-          />
-          {/* Character Counter */}
-          <div className="text-right text-sm text-gray-500 mt-1">
-            {title.length} / {TITLE_MAX_LENGTH}
-          </div>
-        </div>
+      {/* Form Container */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="relative bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-2xl"
+      >
+        {/* Gradient glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 rounded-2xl blur-xl -z-10" />
 
-        {/* Content Textarea */}
-        <div className="mb-6">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            className="w-full h-64 bg-transparent text-lg placeholder-gray-600 focus:outline-none resize-none border-none"
-            disabled={isSubmitting}
-          />
-        </div>
-
-        {/* Image Preview */}
-        {image && (
-          <div className="mb-6 relative">
-            <img
-              src={image}
-              alt="Preview"
-              className="w-full rounded-lg border border-gray-800"
+        <form onSubmit={handleSubmit}>
+          {/* Title Input */}
+          <div className="mb-6">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title"
+              maxLength={TITLE_MAX_LENGTH}
+              className="w-full bg-transparent text-2xl font-bold text-white placeholder-gray-500 focus:outline-none border-none focus:ring-0 transition-colors"
+              disabled={isSubmitting}
+              autoFocus
             />
-            <button
-              type="button"
-              onClick={handleRemoveImage}
-              disabled={isSubmitting || processingImage}
-              className="absolute top-2 right-2 p-2 bg-black/70 rounded-full hover:bg-black/90 transition-colors"
-              title="Remove image"
+            {/* Character Counter */}
+            <div className="text-right text-xs text-gray-500 mt-2">
+              {title.length} / {TITLE_MAX_LENGTH}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-6" />
+
+          {/* Content Textarea */}
+          <div className="mb-6">
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="What's on your mind?"
+              className="w-full h-64 bg-transparent text-lg text-white placeholder-gray-500 focus:outline-none resize-none border-none focus:ring-0 transition-colors"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Image Preview */}
+          {image && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 relative"
             >
-              <span className="text-xl">❌</span>
-            </button>
-          </div>
-        )}
+              <img
+                src={image}
+                alt="Preview"
+                className="w-full rounded-lg border border-white/10"
+              />
+              <Button
+                type="button"
+                onClick={handleRemoveImage}
+                disabled={isSubmitting || processingImage}
+                variant="destructive"
+                size="icon"
+                className="absolute top-3 right-3 rounded-full shadow-lg"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </motion.div>
+          )}
 
-        {/* Image Error */}
-        {imageError && (
-          <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
-            {imageError}
-          </div>
-        )}
+          {/* Image Error */}
+          {imageError && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm"
+            >
+              {imageError}
+            </motion.div>
+          )}
 
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/jpg,image/png,image/gif"
-          onChange={handleImageSelect}
-          className="hidden"
-          disabled={isSubmitting || processingImage}
-        />
-
-        {/* Icon Buttons */}
-        <div className="flex items-center gap-4 pt-4 border-t border-gray-800">
-          <button
-            type="button"
-            onClick={handleImageButtonClick}
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif"
+            onChange={handleImageSelect}
+            className="hidden"
             disabled={isSubmitting || processingImage}
-            className={`p-2 transition-colors ${
-              processingImage
-                ? "text-gray-700 cursor-not-allowed"
-                : "text-gray-500 hover:text-gray-300"
-            }`}
-            title={processingImage ? "Processing..." : "Upload image"}
-          >
-            <span className="text-2xl">{processingImage ? "⏳" : "🖼️"}</span>
-          </button>
-          <button
-            type="button"
-            className="p-2 text-gray-500 hover:text-gray-300 transition-colors"
-            disabled
-            title="Emoji picker (coming soon)"
-          >
-            <span className="text-2xl">😊</span>
-          </button>
-        </div>
+          />
 
-        {/* Hidden Submit Button (triggered by header button) */}
-        <button type="submit" className="hidden" disabled={isSubmitDisabled} />
-      </form>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 pt-6 border-t border-white/10">
+            <Button
+              type="button"
+              onClick={handleImageButtonClick}
+              disabled={isSubmitting || processingImage}
+              variant="outline"
+              size="sm"
+              className="rounded-full border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              <Image className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {processingImage ? "Processing..." : "Image"}
+              </span>
+            </Button>
+          </div>
+
+          {/* Hidden Submit Button (triggered by header button) */}
+          <button type="submit" className="hidden" disabled={isSubmitDisabled} />
+        </form>
+      </motion.div>
     </>
   );
 }
