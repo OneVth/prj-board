@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { userService } from "../services/userService";
 import { useAuth } from "../contexts/AuthContext";
+import { Header } from "../components";
 import type { User } from "../types/user";
 
 // ============================================
@@ -108,19 +109,7 @@ function Search() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              ← Back
-            </Link>
-            <h1 className="text-xl font-bold">Search Users</h1>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 py-6">

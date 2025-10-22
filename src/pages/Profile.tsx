@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { userService } from "../services/userService";
-import { LoadingSpinner, PostCard } from "../components";
+import { LoadingSpinner, PostCard, Header } from "../components";
 import { formatDate } from "../utils/dateFormat";
 import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../types/user";
@@ -88,14 +88,7 @@ function Profile() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 bg-black border-b border-gray-800 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link to="/" className="text-2xl hover:opacity-70 transition-opacity">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold">{user.username}</h1>
-        </div>
-      </header>
+      <Header />
 
       {/* Profile Header */}
       <div className="max-w-2xl mx-auto px-4 py-6 border-b border-gray-800">
