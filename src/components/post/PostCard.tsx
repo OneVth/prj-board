@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { formatTime } from "../../utils/dateFormat";
 import type { Post } from "../../types/post";
 
@@ -15,6 +15,14 @@ interface PostCardProps {
 // ============================================
 
 function PostCard({ post }: PostCardProps) {
+  const navigate = useNavigate();
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/profile/${post.authorId}`);
+  };
+
   return (
     <Link
       to={`/article/${post.id}`}
@@ -23,12 +31,20 @@ function PostCard({ post }: PostCardProps) {
       <article className="p-4">
         {/* Author Info */}
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm">
+          <button
+            onClick={handleAuthorClick}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm hover:opacity-80 transition-opacity cursor-pointer"
+          >
             {post.authorUsername?.[0]?.toUpperCase() || "?"}
-          </div>
+          </button>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <p className="font-semibold">{post.authorUsername || "Unknown"}</p>
+              <button
+                onClick={handleAuthorClick}
+                className="font-semibold hover:underline cursor-pointer"
+              >
+                {post.authorUsername || "Unknown"}
+              </button>
               <span className="text-gray-500">·</span>
               <p className="text-sm text-gray-500">
                 {formatTime(post.createdAt)}
