@@ -245,6 +245,13 @@ function Home() {
           <h1 className="text-xl font-bold">Board</h1>
 
           <div className="flex items-center gap-3">
+            <Link
+              to="/search"
+              className="text-gray-400 hover:text-white transition-colors p-2"
+              title="Search users"
+            >
+              <span className="text-xl">🔍</span>
+            </Link>
             {isAuthenticated && user ? (
               <>
                 <span className="text-sm text-gray-400">

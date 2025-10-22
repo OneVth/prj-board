@@ -35,4 +35,27 @@ export const userService = {
     const response = await fetch(`${API_BASE_URL}/users/${userId}/comments?limit=${limit}`);
     return handleResponse<Comment[]>(response);
   },
+
+  /**
+   * 사용자 검색
+   * @param query - 검색어 (username)
+   * @param limit - 최대 결과 수 (기본값: 20)
+   * @param accessToken - Access Token (선택, 인증된 경우 자신 제외)
+   */
+  async searchUsers(query: string, limit: number = 20, accessToken?: string): Promise<User[]> {
+    const params = new URLSearchParams({
+      q: query,
+      limit: limit.toString(),
+    });
+
+    const headers: HeadersInit = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/search?${params.toString()}`, {
+      headers,
+    });
+    return handleResponse<User[]>(response);
+  },
 };

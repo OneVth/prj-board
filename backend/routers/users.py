@@ -2,14 +2,55 @@
 Users Router - 사용자 프로필 관련 API 엔드포인트
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from typing import Optional
 
 from core.database import get_database
 from core.exceptions import NotFoundException
+from core.security import get_current_user, TokenData
 from models import UserResponse, PostResponse, CommentResponse
 from utils import user_helper, post_helper, comment_helper, validate_object_id
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
+
+
+@router.get("/search", response_model=list[UserResponse])
+async def search_users(
+    q: str,
+    limit: int = 20,
+    current_user: Optional[TokenData] = Depends(get_current_user)
+):
+    """
+    사용자 검색
+    - **q**: 검색어 (username으로 검색)
+    - **limit**: 최대 결과 수 (기본값: 20, 최대: 50)
+    - 자신은 검색 결과에서 제외
+    - 부분 일치 지원 (대소문자 구분 없음)
+    """
+    database = get_database()
+    users_collection = database["users"]
+
+    # 검색어가 비어있으면 빈 목록 반환
+    if not q or not q.strip():
+        return []
+
+    # limit 최대값 제한
+    limit = min(limit, 50)
+
+    # 검색 쿼리 구성 (username 부분 일치, 대소문자 구분 없음)
+    search_query = {
+        "username": {"$regex": q.strip(), "$options": "i"}
+    }
+
+    # 현재 사용자는 검색 결과에서 제외
+    if current_user:
+        search_query["_id"] = {"$ne": validate_object_id(current_user.user_id)}
+
+    # 사용자 검색
+    cursor = users_collection.find(search_query).limit(limit)
+    users = await cursor.to_list(length=limit)
+
+    return [user_helper(user) for user in users]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
