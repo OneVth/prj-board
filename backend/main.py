@@ -1,16 +1,35 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from bson import ObjectId
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
+# 인증 관련 imports
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    verify_token,
+    get_current_user,
+    get_refresh_token_from_cookie,
+    set_refresh_token_cookie,
+    clear_refresh_token_cookie,
+    TokenData,
+    TokenPair,
+)
+
+# .env 파일 로드
+load_dotenv()
 
 # MongoDB 연결 설정
-MONGO_URL = "mongodb://localhost:27017"
-DATABASE_NAME = "board"
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "board_db")
 
 # 전역 변수 (앱 시작 시 초기화됨)
 mongodb_client: AsyncIOMotorClient = None
@@ -112,6 +131,62 @@ class CommentResponse(BaseModel):
     author: str
     created_at: str
     likes: int = 0
+
+    model_config = {
+        "populate_by_name": True,
+        "alias_generator": lambda field_name: "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(field_name.split("_"))
+        ),
+        "by_alias": True,
+    }
+
+
+# ============================================
+# User 관련 모델
+# ============================================
+
+
+class UserRegister(BaseModel):
+    """회원가입 시 사용하는 모델"""
+
+    username: str = Field(..., min_length=3, max_length=50, description="사용자 이름")
+    email: EmailStr = Field(..., description="이메일 주소")
+    password: str = Field(..., min_length=6, description="비밀번호")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "username": "johndoe",
+                    "email": "john@example.com",
+                    "password": "password123",
+                }
+            ]
+        }
+    }
+
+
+class UserLogin(BaseModel):
+    """로그인 시 사용하는 모델"""
+
+    email: EmailStr = Field(..., description="이메일 주소")
+    password: str = Field(..., description="비밀번호")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"email": "john@example.com", "password": "password123"}]
+        }
+    }
+
+
+class UserResponse(BaseModel):
+    """사용자 정보 응답 모델"""
+
+    id: str
+    username: str
+    email: str
+    created_at: str
 
     model_config = {
         "populate_by_name": True,
@@ -226,6 +301,18 @@ def comment_helper(comment) -> dict:
     }
 
 
+def user_helper(user) -> dict:
+    """
+    MongoDB 문서를 UserResponse 형식으로 변환
+    """
+    return {
+        "id": str(user["_id"]),
+        "username": user["username"],
+        "email": user["email"],
+        "created_at": user.get("created_at", "1970-01-01T00:00:00.000Z"),
+    }
+
+
 def validate_object_id(post_id: str) -> ObjectId:
     """
     ObjectId 유효성 검증 및 변환
@@ -284,20 +371,21 @@ async def lifespan(app: FastAPI):
 
 async def create_indexes():
     """
-    posts 컬렉션에 인덱스 생성
-    - created_at: 내림차순 정렬을 위한 인덱스
-    - text index: 제목 및 본문 검색을 위한 텍스트 인덱스
+    컬렉션별 인덱스 생성
+    - posts: created_at, likes, text search
+    - users: email (unique), username (unique)
     """
     posts_collection = database["posts"]
+    users_collection = database["users"]
 
-    # created_at 필드에 내림차순 인덱스 생성
+    # Posts 인덱스
     await posts_collection.create_index([("created_at", -1)])
-
-    # likes 필드에 내림차순 인덱스 생성
     await posts_collection.create_index([("likes", -1)])
-
-    # title과 content에 text index 생성 (검색용)
     await posts_collection.create_index([("title", "text"), ("content", "text")])
+
+    # Users 인덱스
+    await users_collection.create_index("email", unique=True)
+    await users_collection.create_index("username", unique=True)
 
     print("✅ Indexes created successfully!")
 
@@ -683,3 +771,142 @@ async def delete_comment(comment_id: str):
         )
 
     return {"message": "Comment deleted successfully"}
+
+
+# ============================================
+# Authentication API 엔드포인트
+# ============================================
+
+
+@app.post(
+    "/api/auth/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Authentication"],
+)
+async def register(user_data: UserRegister):
+    """
+    회원가입
+    - **username**: 사용자 이름 (3-50자, 중복 불가)
+    - **email**: 이메일 주소 (중복 불가)
+    - **password**: 비밀번호 (최소 6자)
+    """
+    users_collection = database["users"]
+
+    # 이메일 중복 확인
+    existing_user = await users_collection.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+
+    # 사용자 이름 중복 확인
+    existing_username = await users_collection.find_one(
+        {"username": user_data.username}
+    )
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken",
+        )
+
+    # 비밀번호 해싱
+    hashed_password = hash_password(user_data.password)
+
+    # 새 사용자 생성
+    new_user = {
+        "username": user_data.username,
+        "email": user_data.email,
+        "password": hashed_password,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+    result = await users_collection.insert_one(new_user)
+    created_user = await users_collection.find_one({"_id": result.inserted_id})
+
+    return user_helper(created_user)
+
+
+@app.post("/api/auth/login", response_model=TokenPair, tags=["Authentication"])
+async def login(user_data: UserLogin, response: Response):
+    """
+    로그인
+    - **email**: 이메일 주소
+    - **password**: 비밀번호
+
+    성공 시:
+    - Access Token: 응답 body에 반환 (메모리에 저장)
+    - Refresh Token: HTTPOnly 쿠키에 설정
+    """
+    users_collection = database["users"]
+
+    # 이메일로 사용자 찾기
+    user = await users_collection.find_one({"email": user_data.email})
+
+    if not user or not verify_password(user_data.password, user["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+
+    # JWT 토큰 생성
+    token_data = {"sub": str(user["_id"]), "username": user["username"]}
+
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    # Refresh Token을 HTTPOnly 쿠키에 설정
+    set_refresh_token_cookie(response, refresh_token)
+
+    return TokenPair(access_token=access_token)
+
+
+@app.post("/api/auth/refresh", response_model=TokenPair, tags=["Authentication"])
+async def refresh_access_token(
+    request: Request,
+    refresh_token: str = Depends(get_refresh_token_from_cookie),
+):
+    """
+    Access Token 재발급
+    - Refresh Token (쿠키)을 사용하여 새로운 Access Token 발급
+    """
+    # Refresh Token 검증
+    token_data = verify_token(refresh_token, token_type="refresh")
+
+    # 새 Access Token 생성
+    new_token_data = {"sub": token_data.user_id, "username": token_data.username}
+    new_access_token = create_access_token(new_token_data)
+
+    return TokenPair(access_token=new_access_token)
+
+
+@app.post("/api/auth/logout", tags=["Authentication"])
+async def logout(response: Response):
+    """
+    로그아웃
+    - Refresh Token 쿠키 삭제
+    """
+    clear_refresh_token_cookie(response)
+    return {"message": "Logged out successfully"}
+
+
+@app.get("/api/auth/me", response_model=UserResponse, tags=["Authentication"])
+async def get_current_user_info(current_user: TokenData = Depends(get_current_user)):
+    """
+    현재 로그인한 사용자 정보 조회
+    - Authorization 헤더에 Access Token 필요
+    """
+    users_collection = database["users"]
+
+    # ObjectId 유효성 검증
+    object_id = validate_object_id(current_user.user_id)
+
+    user = await users_collection.find_one({"_id": object_id})
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    return user_helper(user)
