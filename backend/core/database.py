@@ -14,16 +14,16 @@ async def connect_to_mongo():
     """MongoDB 연결 시작"""
     global mongodb_client, database
 
-    print("🔌 Connecting to MongoDB...")
+    print("[INFO] Connecting to MongoDB...")
     mongodb_client = AsyncIOMotorClient(settings.MONGO_URL)
     database = mongodb_client[settings.DATABASE_NAME]
 
     # 연결 테스트
     try:
         await mongodb_client.admin.command("ping")
-        print("✅ MongoDB connection successful!")
+        print("[SUCCESS] MongoDB connection successful!")
     except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
+        print(f"[ERROR] MongoDB connection failed: {e}")
         raise
 
     # 인덱스 생성
@@ -35,14 +35,14 @@ async def close_mongo_connection():
     global mongodb_client
 
     if mongodb_client:
-        print("🔌 Closing MongoDB connection...")
+        print("[INFO] Closing MongoDB connection...")
         mongodb_client.close()
-        print("✅ MongoDB connection closed!")
+        print("[SUCCESS] MongoDB connection closed!")
 
 
 async def create_indexes():
     """컬렉션별 인덱스 생성"""
-    if not database:
+    if database is None:
         return
 
     posts_collection = database["posts"]
@@ -62,7 +62,7 @@ async def create_indexes():
     await comments_collection.create_index("post_id")
     await comments_collection.create_index([("created_at", 1)])
 
-    print("✅ Indexes created successfully!")
+    print("[SUCCESS] Indexes created successfully!")
 
 
 def get_database() -> AsyncIOMotorDatabase:
