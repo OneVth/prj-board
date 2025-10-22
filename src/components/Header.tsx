@@ -110,20 +110,6 @@ export function Header() {
             </>
           ) : (
             <>
-              {/* Search Users Button */}
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link to="/search">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="rounded-full border-white/20 bg-white/5 backdrop-blur-sm transition-all hover:bg-white/10"
-                    title="Search users"
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </motion.div>
-
               {/* Login Button */}
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link to="/login">
