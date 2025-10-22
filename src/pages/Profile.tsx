@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { userService } from "../services/userService";
 import { LoadingSpinner, PostCard, Header } from "../components";
+import UserListModal from "../components/user/UserListModal";
 import { formatDate } from "../utils/dateFormat";
 import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../types/user";
@@ -18,6 +19,8 @@ function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "comments">("posts");
   const [followLoading, setFollowLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -67,6 +70,11 @@ function Profile() {
   };
 
   const isOwnProfile = currentUser && currentUser.id === userId;
+
+  const handleOpenModal = (type: "followers" | "following") => {
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   if (loading) {
     return <LoadingSpinner />;
@@ -134,14 +142,20 @@ function Profile() {
             <span className="font-bold">{posts.length}</span>{" "}
             <span className="text-gray-500">Posts</span>
           </div>
-          <div>
+          <button
+            onClick={() => handleOpenModal("followers")}
+            className="hover:opacity-70 transition-opacity"
+          >
             <span className="font-bold">{user.followerCount}</span>{" "}
             <span className="text-gray-500">Followers</span>
-          </div>
-          <div>
+          </button>
+          <button
+            onClick={() => handleOpenModal("following")}
+            className="hover:opacity-70 transition-opacity"
+          >
             <span className="font-bold">{user.followingCount}</span>{" "}
             <span className="text-gray-500">Following</span>
-          </div>
+          </button>
         </div>
           </div>
         </div>
@@ -207,6 +221,14 @@ function Profile() {
         )}
         </div>
       </main>
+
+      {/* User List Modal */}
+      <UserListModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        userId={userId!}
+        type={modalType}
+      />
     </div>
   );
 }

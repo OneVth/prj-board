@@ -240,3 +240,69 @@ async def unfollow_user(
     # 업데이트된 대상 사용자 정보 반환
     updated_user = await users_collection.find_one({"_id": target_object_id})
     return user_helper(updated_user, current_user.user_id)
+
+
+@router.get("/{user_id}/followers", response_model=list[UserResponse])
+async def get_user_followers(
+    user_id: str,
+    current_user: Optional[TokenData] = Depends(get_current_user_optional)
+):
+    """
+    사용자의 팔로워 목록 조회
+    - **user_id**: 사용자 ID
+    - 인증 선택사항 (isFollowing 상태 계산용)
+    """
+    database = get_database()
+    users_collection = database["users"]
+
+    # 사용자 존재 확인
+    object_id = validate_object_id(user_id)
+    user = await users_collection.find_one({"_id": object_id})
+    if not user:
+        raise NotFoundException("User", user_id)
+
+    # followers 배열에서 사용자 ID 목록 가져오기
+    follower_ids = user.get("followers", [])
+    if not follower_ids:
+        return []
+
+    # followers 정보 조회
+    follower_object_ids = [ObjectId(fid) for fid in follower_ids if ObjectId.is_valid(fid)]
+    cursor = users_collection.find({"_id": {"$in": follower_object_ids}})
+    followers = await cursor.to_list(length=len(follower_object_ids))
+
+    current_user_id = current_user.user_id if current_user else None
+    return [user_helper(follower, current_user_id) for follower in followers]
+
+
+@router.get("/{user_id}/following", response_model=list[UserResponse])
+async def get_user_following(
+    user_id: str,
+    current_user: Optional[TokenData] = Depends(get_current_user_optional)
+):
+    """
+    사용자가 팔로우하는 사용자 목록 조회
+    - **user_id**: 사용자 ID
+    - 인증 선택사항 (isFollowing 상태 계산용)
+    """
+    database = get_database()
+    users_collection = database["users"]
+
+    # 사용자 존재 확인
+    object_id = validate_object_id(user_id)
+    user = await users_collection.find_one({"_id": object_id})
+    if not user:
+        raise NotFoundException("User", user_id)
+
+    # following 배열에서 사용자 ID 목록 가져오기
+    following_ids = user.get("following", [])
+    if not following_ids:
+        return []
+
+    # following 정보 조회
+    following_object_ids = [ObjectId(fid) for fid in following_ids if ObjectId.is_valid(fid)]
+    cursor = users_collection.find({"_id": {"$in": following_object_ids}})
+    following = await cursor.to_list(length=len(following_object_ids))
+
+    current_user_id = current_user.user_id if current_user else None
+    return [user_helper(following_user, current_user_id) for following_user in following]

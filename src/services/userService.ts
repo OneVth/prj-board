@@ -96,4 +96,38 @@ export const userService = {
     });
     return handleResponse<User>(response);
   },
+
+  /**
+   * 사용자의 팔로워 목록 조회
+   * @param userId - 사용자 ID
+   * @param accessToken - Access Token (선택, is_following 계산용)
+   */
+  async getUserFollowers(userId: string, accessToken?: string): Promise<User[]> {
+    const headers: HeadersInit = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/followers`, {
+      headers,
+    });
+    return handleResponse<User[]>(response);
+  },
+
+  /**
+   * 사용자가 팔로우하는 사용자 목록 조회
+   * @param userId - 사용자 ID
+   * @param accessToken - Access Token (선택, is_following 계산용)
+   */
+  async getUserFollowing(userId: string, accessToken?: string): Promise<User[]> {
+    const headers: HeadersInit = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/following`, {
+      headers,
+    });
+    return handleResponse<User[]>(response);
+  },
 };
