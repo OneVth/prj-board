@@ -207,6 +207,8 @@ class PostResponse(BaseModel):
     - created_at: 생성 시간 (ISO 8601 형식)
     - likes: 좋아요 수
     - comment_count: 댓글 수
+    - author_id: 작성자 ID
+    - author_username: 작성자 이름
     """
 
     id: str
@@ -215,6 +217,8 @@ class PostResponse(BaseModel):
     created_at: str
     likes: int = 0
     comment_count: int = 0
+    author_id: str
+    author_username: str
 
     model_config = {
         "populate_by_name": True,
@@ -272,10 +276,21 @@ class PostListResponse(BaseModel):
 async def post_helper(post) -> dict:
     """
     MongoDB 문서를 PostResponse 형식으로 변환
-    댓글 수를 함께 계산하여 반환
+    댓글 수와 작성자 정보를 함께 조회하여 반환
     """
     comments_collection = database["comments"]
+    users_collection = database["users"]
+
     comment_count = await comments_collection.count_documents({"post_id": post["_id"]})
+
+    # 작성자 정보 조회
+    author_id = post.get("author_id")
+    author_username = "Unknown"
+
+    if author_id:
+        author = await users_collection.find_one({"_id": ObjectId(author_id)})
+        if author:
+            author_username = author.get("username", "Unknown")
 
     return {
         "id": str(post["_id"]),  # _id를 id로 변환하여 프론트엔드에 전달
@@ -284,6 +299,8 @@ async def post_helper(post) -> dict:
         "created_at": post.get("created_at", "1970-01-01T00:00:00.000Z"),
         "likes": post.get("likes", 0),
         "comment_count": comment_count,
+        "author_id": str(author_id) if author_id else "",
+        "author_username": author_username,
     }
 
 
@@ -556,20 +573,23 @@ async def get_post(post_id: str):
     status_code=status.HTTP_201_CREATED,
     tags=["Posts"],
 )
-async def create_post(post: PostCreate):
+async def create_post(
+    post: PostCreate, current_user: TokenData = Depends(get_current_user)
+):
     """
-    게시글 작성
+    게시글 작성 (인증 필요)
     - **title**: 게시글 제목 (1-200자)
     - **content**: 게시글 본문 (1자 이상)
     """
     posts_collection = database["posts"]
 
-    # 새 게시글 문서 생성
+    # 새 게시글 문서 생성 (작성자 정보 포함)
     new_post = {
         "title": post.title,
         "content": post.content,
         "created_at": datetime.utcnow().isoformat() + "Z",  # ISO 8601 형식
         "likes": 0,
+        "author_id": current_user.user_id,  # 작성자 ID 저장
     }
 
     # MongoDB에 삽입
@@ -582,9 +602,11 @@ async def create_post(post: PostCreate):
 
 
 @app.put("/api/posts/{post_id}", response_model=PostResponse, tags=["Posts"])
-async def update_post(post_id: str, post: PostUpdate):
+async def update_post(
+    post_id: str, post: PostUpdate, current_user: TokenData = Depends(get_current_user)
+):
     """
-    게시글 수정
+    게시글 수정 (본인만 가능)
     - **post_id**: 게시글 ID
     - **title**: 수정할 제목 (선택)
     - **content**: 수정할 본문 (선택)
@@ -593,6 +615,21 @@ async def update_post(post_id: str, post: PostUpdate):
     object_id = validate_object_id(post_id)
 
     posts_collection = database["posts"]
+
+    # 기존 게시글 조회 및 작성자 확인
+    existing_post = await posts_collection.find_one({"_id": object_id})
+    if not existing_post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {post_id} not found",
+        )
+
+    # 작성자 본인 확인
+    if existing_post.get("author_id") != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own posts",
+        )
 
     # 업데이트할 필드만 추출 (None이 아닌 값만)
     update_data = {}
@@ -608,16 +645,7 @@ async def update_post(post_id: str, post: PostUpdate):
         )
 
     # 게시글 업데이트
-    result = await posts_collection.update_one(
-        {"_id": object_id}, {"$set": update_data}
-    )
-
-    # 업데이트된 문서가 없으면 404
-    if result.matched_count == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Post with id {post_id} not found",
-        )
+    await posts_collection.update_one({"_id": object_id}, {"$set": update_data})
 
     # 업데이트된 문서 조회
     updated_post = await posts_collection.find_one({"_id": object_id})
@@ -626,9 +654,9 @@ async def update_post(post_id: str, post: PostUpdate):
 
 
 @app.delete("/api/posts/{post_id}", tags=["Posts"])
-async def delete_post(post_id: str):
+async def delete_post(post_id: str, current_user: TokenData = Depends(get_current_user)):
     """
-    게시글 삭제
+    게시글 삭제 (본인만 가능)
     - **post_id**: 게시글 ID
     """
     # ObjectId 유효성 검증
@@ -636,15 +664,23 @@ async def delete_post(post_id: str):
 
     posts_collection = database["posts"]
 
-    # 게시글 삭제
-    result = await posts_collection.delete_one({"_id": object_id})
-
-    # 삭제된 문서가 없으면 404
-    if result.deleted_count == 0:
+    # 기존 게시글 조회 및 작성자 확인
+    existing_post = await posts_collection.find_one({"_id": object_id})
+    if not existing_post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Post with id {post_id} not found",
         )
+
+    # 작성자 본인 확인
+    if existing_post.get("author_id") != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own posts",
+        )
+
+    # 게시글 삭제
+    await posts_collection.delete_one({"_id": object_id})
 
     return {"message": f"Post with id {post_id} deleted successfully"}
 

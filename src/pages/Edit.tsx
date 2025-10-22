@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { postService } from "../services/postService";
+import { useAuth } from "../contexts/AuthContext";
 import { LoadingSpinner, PostForm } from "../components";
 import type { Post, PostFormData } from "../types/post";
 
@@ -11,6 +12,7 @@ import type { Post, PostFormData } from "../types/post";
 function Edit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { accessToken } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -47,11 +49,16 @@ function Edit() {
   const handleSubmit = async (data: PostFormData) => {
     if (!id) return;
 
+    if (!accessToken) {
+      setError("You must be logged in to edit a post");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      const updatedPost = await postService.updatePost(id, data);
+      const updatedPost = await postService.updatePost(id, data, accessToken);
       navigate(`/article/${updatedPost.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update post");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { postService } from "../services/postService";
+import { useAuth } from "../contexts/AuthContext";
 import { PostForm } from "../components";
 import type { PostFormData } from "../types/post";
 
@@ -10,16 +11,22 @@ import type { PostFormData } from "../types/post";
 
 function New() {
   const navigate = useNavigate();
+  const { accessToken } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 폼 제출 핸들러
   const handleSubmit = async (data: PostFormData) => {
+    if (!accessToken) {
+      setError("You must be logged in to create a post");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      const newPost = await postService.createPost(data);
+      const newPost = await postService.createPost(data, accessToken);
       navigate(`/article/${newPost.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create post");

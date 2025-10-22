@@ -23,14 +23,18 @@ function PostCard({ post }: PostCardProps) {
       <article className="p-4">
         {/* Author Info */}
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold">
-            {post.title[0]?.toUpperCase() || "?"}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm">
+            {post.authorUsername?.[0]?.toUpperCase() || "?"}
           </div>
           <div className="flex-1">
-            <p className="font-semibold">{post.title}</p>
-            <p className="text-sm text-gray-500">
-              {formatTime(post.createdAt)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold">{post.authorUsername || "Unknown"}</p>
+              <span className="text-gray-500">·</span>
+              <p className="text-sm text-gray-500">
+                {formatTime(post.createdAt)}
+              </p>
+            </div>
+            <p className="font-semibold text-white mt-1">{post.title}</p>
           </div>
         </div>
 

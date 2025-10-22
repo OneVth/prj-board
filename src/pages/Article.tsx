@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { postService } from "../services/postService";
 import { commentService } from "../services/commentService";
+import { useAuth } from "../contexts/AuthContext";
 import { formatTime } from "../utils/dateFormat";
 import { LoadingSpinner, CommentForm, CommentList } from "../components";
 import type { Post } from "../types/post";
@@ -137,6 +138,7 @@ const initialState: ArticleState = {
 function Article() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, accessToken } = useAuth();
   const [state, dispatch] = useReducer(articleReducer, initialState);
   const isInitialMount = useRef(true);
 
@@ -211,7 +213,7 @@ function Article() {
 
   // 삭제 핸들러
   const handleDelete = async () => {
-    if (!id || state.deleting) return;
+    if (!id || state.deleting || !accessToken) return;
 
     const confirmed = window.confirm(
       "Are you sure you want to delete this post? This action cannot be undone."
@@ -222,7 +224,7 @@ function Article() {
     dispatch({ type: "DELETE_START" });
 
     try {
-      await postService.deletePost(id);
+      await postService.deletePost(id, accessToken);
       dispatch({ type: "DELETE_SUCCESS" });
       navigate("/");
     } catch (error) {
@@ -292,6 +294,9 @@ function Article() {
 
   const { post } = state;
 
+  // 본인 게시글인지 확인
+  const isAuthor = user && post.authorId === user.id;
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -304,29 +309,31 @@ function Article() {
           >
             ← Back
           </button>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleDelete}
-              disabled={state.deleting}
-              className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-                state.deleting
-                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-red-600 text-white hover:bg-red-700"
-              }`}
-            >
-              {state.deleting ? "Deleting..." : "Delete"}
-            </button>
-            <Link
-              to={`/edit/${post.id}`}
-              className={`px-4 py-2 bg-white font-bold text-black rounded-full transition-colors ${
-                state.deleting
-                  ? "pointer-events-none opacity-50"
-                  : "hover:bg-gray-200"
-              }`}
-            >
-              Edit
-            </Link>
-          </div>
+          {isAuthor && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDelete}
+                disabled={state.deleting}
+                className={`px-4 py-2 rounded-full font-semibold transition-colors ${
+                  state.deleting
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-red-600 text-white hover:bg-red-700"
+                }`}
+              >
+                {state.deleting ? "Deleting..." : "Delete"}
+              </button>
+              <Link
+                to={`/edit/${post.id}`}
+                className={`px-4 py-2 bg-white font-bold text-black rounded-full transition-colors ${
+                  state.deleting
+                    ? "pointer-events-none opacity-50"
+                    : "hover:bg-gray-200"
+                }`}
+              >
+                Edit
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
@@ -335,15 +342,18 @@ function Article() {
         {/* Author Info */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
-            {post.title[0]?.toUpperCase() || "?"}
+            {post.authorUsername?.[0]?.toUpperCase() || "?"}
           </div>
           <div>
-            <p className="font-semibold text-lg">{post.title}</p>
+            <p className="font-semibold text-lg">{post.authorUsername || "Unknown"}</p>
             <p className="text-sm text-gray-500">
               {formatTime(post.createdAt)}
             </p>
           </div>
         </div>
+
+        {/* Post Title */}
+        <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
 
         {/* Post Content */}
         <article className="mb-6">

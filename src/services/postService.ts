@@ -56,14 +56,16 @@ export const postService = {
   },
 
   /**
-   * 게시글 생성
+   * 게시글 생성 (인증 필요)
    * @param postData - 게시글 데이터 (title, content)
+   * @param accessToken - Access Token
    */
-  async createPost(postData: PostFormData): Promise<Post> {
+  async createPost(postData: PostFormData, accessToken: string): Promise<Post> {
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(postData),
     });
@@ -71,15 +73,21 @@ export const postService = {
   },
 
   /**
-   * 게시글 수정
+   * 게시글 수정 (인증 필요)
    * @param id - 게시글 ID
    * @param postData - 수정할 데이터 (title, content 중 하나 이상)
+   * @param accessToken - Access Token
    */
-  async updatePost(id: string, postData: Partial<PostFormData>): Promise<Post> {
+  async updatePost(
+    id: string,
+    postData: Partial<PostFormData>,
+    accessToken: string
+  ): Promise<Post> {
     const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(postData),
     });
@@ -87,12 +95,16 @@ export const postService = {
   },
 
   /**
-   * 게시글 삭제
+   * 게시글 삭제 (인증 필요)
    * @param id - 게시글 ID
+   * @param accessToken - Access Token
    */
-  async deletePost(id: string): Promise<void> {
+  async deletePost(id: string, accessToken: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
     await handleResponse<{ message: string }>(response);
   },

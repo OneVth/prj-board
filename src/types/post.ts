@@ -9,6 +9,8 @@ export interface Post {
   readonly createdAt: string; // 게시글 생성 날짜; ISO 8601 날짜 문자열
   likes: number; // 좋아요 수
   commentCount: number; // 댓글 수
+  readonly authorId: string; // 작성자 ID
+  readonly authorUsername: string; // 작성자 이름
 }
 
 /**
