@@ -4,6 +4,7 @@ Posts Router - 게시글 관련 API 엔드포인트
 
 from fastapi import APIRouter, Depends, status
 from datetime import datetime
+from bson import ObjectId
 
 from core.database import get_database
 from core.security import get_current_user, TokenData
@@ -116,6 +117,158 @@ async def get_posts(
                 "author_id": "$author_id",
                 "author_username": 1,
                 "image": 1,  # 이미지 필드 포함
+            }
+        },
+    ]
+
+    posts = await posts_collection.aggregate(pipeline).to_list(length=limit)
+
+    # 전체 페이지 수 계산
+    total_pages = (total_posts + limit - 1) // limit
+
+    return {
+        "posts": posts,
+        "total_posts": total_posts,
+        "current_page": page,
+        "total_pages": total_pages,
+    }
+
+
+@router.get("/following", response_model=PostListResponse)
+async def get_following_posts(
+    page: int = 1,
+    limit: int = 10,
+    sort: str = "date",
+    current_user: TokenData = Depends(get_current_user),
+):
+    """
+    팔로우한 사용자들의 게시글 목록 조회
+    - **page**: 페이지 번호 (기본값: 1)
+    - **limit**: 페이지당 게시글 수 (기본값: 10, 최대: 100)
+    - **sort**: 정렬 기준 (date=최신순, likes=좋아요순, comments=댓글순)
+    - 인증 필요
+    """
+    database = get_database()
+    posts_collection = database["posts"]
+    users_collection = database["users"]
+
+    # limit 최대값 제한
+    limit = min(limit, 100)
+    skip = (page - 1) * limit
+
+    # 현재 사용자가 팔로우하는 사용자 목록 가져오기
+    # JWT에서 온 user_id는 이미 문자열 형태이므로 직접 ObjectId로 변환
+    try:
+        current_user_object_id = ObjectId(current_user.user_id)
+    except Exception as e:
+        raise BadRequestException(f"Invalid user ID: {current_user.user_id}")
+
+    current_user_doc = await users_collection.find_one({"_id": current_user_object_id})
+
+    if not current_user_doc:
+        raise NotFoundException("User", current_user.user_id)
+
+    following_list = current_user_doc.get("following", [])
+
+    # 팔로우한 사용자가 없으면 빈 목록 반환
+    if not following_list:
+        return {
+            "posts": [],
+            "total_posts": 0,
+            "current_page": page,
+            "total_pages": 0,
+        }
+
+    # following_list의 ID들을 검증하고 유효한 것만 사용
+    valid_following_ids = []
+    for user_id in following_list:
+        if ObjectId.is_valid(user_id):
+            valid_following_ids.append(user_id)
+
+    # 유효한 following ID가 없으면 빈 목록 반환
+    if not valid_following_ids:
+        return {
+            "posts": [],
+            "total_posts": 0,
+            "current_page": page,
+            "total_pages": 0,
+        }
+
+    # 팔로우한 사용자들의 게시글만 필터링
+    match_query = {"author_id": {"$in": valid_following_ids}}
+
+    # 전체 게시글 수
+    total_posts = await posts_collection.count_documents(match_query)
+
+    # 정렬 기준 설정
+    if sort == "likes":
+        sort_stage = {"$sort": {"likes": -1, "created_at": -1}}
+    elif sort == "comments":
+        sort_stage = {"$sort": {"comment_count": -1, "created_at": -1}}
+    else:
+        sort_stage = {"$sort": {"created_at": -1}}
+
+    # MongoDB Aggregation Pipeline
+    pipeline = [
+        {"$match": match_query},
+        # Convert author_id string to ObjectId for JOIN
+        {
+            "$addFields": {
+                "author_object_id": {
+                    "$cond": {
+                        "if": {"$ne": ["$author_id", None]},
+                        "then": {"$toObjectId": "$author_id"},
+                        "else": None,
+                    }
+                }
+            }
+        },
+        # JOIN comments collection
+        {
+            "$lookup": {
+                "from": "comments",
+                "localField": "_id",
+                "foreignField": "post_id",
+                "as": "comments_list",
+            }
+        },
+        # JOIN users collection
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "author_object_id",
+                "foreignField": "_id",
+                "as": "author_info",
+            }
+        },
+        # Calculate comment_count and extract author_username
+        {
+            "$addFields": {
+                "comment_count": {"$size": "$comments_list"},
+                "author_username": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$author_info.username", 0]},
+                        "Unknown",
+                    ]
+                },
+            }
+        },
+        sort_stage,
+        {"$skip": skip},
+        {"$limit": limit},
+        # Project final shape (PostResponse format)
+        {
+            "$project": {
+                "_id": 0,
+                "id": {"$toString": "$_id"},
+                "title": 1,
+                "content": 1,
+                "created_at": {"$ifNull": ["$created_at", "1970-01-01T00:00:00.000Z"]},
+                "likes": {"$ifNull": ["$likes", 0]},
+                "comment_count": 1,
+                "author_id": "$author_id",
+                "author_username": 1,
+                "image": 1,
             }
         },
     ]
@@ -295,135 +448,3 @@ async def like_post(post_id: str, current_user: TokenData = Depends(get_current_
 
     updated_post = await posts_collection.find_one({"_id": object_id})
     return await post_helper(updated_post)
-
-
-@router.get("/following", response_model=PostListResponse)
-async def get_following_posts(
-    page: int = 1,
-    limit: int = 10,
-    sort: str = "date",
-    current_user: TokenData = Depends(get_current_user),
-):
-    """
-    팔로우한 사용자들의 게시글 목록 조회
-    - **page**: 페이지 번호 (기본값: 1)
-    - **limit**: 페이지당 게시글 수 (기본값: 10, 최대: 100)
-    - **sort**: 정렬 기준 (date=최신순, likes=좋아요순, comments=댓글순)
-    - 인증 필요
-    """
-    database = get_database()
-    posts_collection = database["posts"]
-    users_collection = database["users"]
-
-    # limit 최대값 제한
-    limit = min(limit, 100)
-    skip = (page - 1) * limit
-
-    # 현재 사용자가 팔로우하는 사용자 목록 가져오기
-    current_user_object_id = validate_object_id(current_user.user_id)
-    current_user_doc = await users_collection.find_one({"_id": current_user_object_id})
-
-    if not current_user_doc:
-        raise NotFoundException("User", current_user.user_id)
-
-    following_list = current_user_doc.get("following", [])
-
-    # 팔로우한 사용자가 없으면 빈 목록 반환
-    if not following_list:
-        return {
-            "posts": [],
-            "total_posts": 0,
-            "current_page": page,
-            "total_pages": 0,
-        }
-
-    # 팔로우한 사용자들의 게시글만 필터링
-    match_query = {"author_id": {"$in": following_list}}
-
-    # 전체 게시글 수
-    total_posts = await posts_collection.count_documents(match_query)
-
-    # 정렬 기준 설정
-    if sort == "likes":
-        sort_stage = {"$sort": {"likes": -1, "created_at": -1}}
-    elif sort == "comments":
-        sort_stage = {"$sort": {"comment_count": -1, "created_at": -1}}
-    else:
-        sort_stage = {"$sort": {"created_at": -1}}
-
-    # MongoDB Aggregation Pipeline
-    pipeline = [
-        {"$match": match_query},
-        # Convert author_id string to ObjectId for JOIN
-        {
-            "$addFields": {
-                "author_object_id": {
-                    "$cond": {
-                        "if": {"$ne": ["$author_id", None]},
-                        "then": {"$toObjectId": "$author_id"},
-                        "else": None,
-                    }
-                }
-            }
-        },
-        # JOIN comments collection
-        {
-            "$lookup": {
-                "from": "comments",
-                "localField": "_id",
-                "foreignField": "post_id",
-                "as": "comments_list",
-            }
-        },
-        # JOIN users collection
-        {
-            "$lookup": {
-                "from": "users",
-                "localField": "author_object_id",
-                "foreignField": "_id",
-                "as": "author_info",
-            }
-        },
-        # Calculate comment_count and extract author_username
-        {
-            "$addFields": {
-                "comment_count": {"$size": "$comments_list"},
-                "author_username": {
-                    "$ifNull": [
-                        {"$arrayElemAt": ["$author_info.username", 0]},
-                        "Unknown",
-                    ]
-                },
-            }
-        },
-        sort_stage,
-        {"$skip": skip},
-        {"$limit": limit},
-        # Project final shape (PostResponse format)
-        {
-            "$project": {
-                "_id": 0,
-                "id": {"$toString": "$_id"},
-                "title": 1,
-                "content": 1,
-                "created_at": {"$ifNull": ["$created_at", "1970-01-01T00:00:00.000Z"]},
-                "likes": {"$ifNull": ["$likes", 0]},
-                "comment_count": 1,
-                "author_id": "$author_id",
-                "author_username": 1,
-                "image": 1,
-            }
-        },
-    ]
-
-    posts = await posts_collection.aggregate(pipeline).to_list(length=limit)
-
-    # 전체 페이지 수 계산
-    total_pages = (total_posts + limit - 1) // limit
-
-    return {
-        "posts": posts,
-        "total_posts": total_posts,
-        "current_page": page,
-        "total_pages": total_pages,
-    }

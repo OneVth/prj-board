@@ -4,9 +4,10 @@ Users Router - 사용자 프로필 관련 API 엔드포인트
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Optional
+from bson import ObjectId
 
 from core.database import get_database
-from core.exceptions import NotFoundException
+from core.exceptions import NotFoundException, BadRequestException
 from core.security import get_current_user, TokenData
 from models import UserResponse, PostResponse, CommentResponse
 from utils import user_helper, post_helper, comment_helper, validate_object_id
@@ -46,7 +47,7 @@ async def search_users(
     current_user_id = None
     if current_user:
         current_user_id = current_user.user_id
-        search_query["_id"] = {"$ne": validate_object_id(current_user_id)}
+        search_query["_id"] = {"$ne": ObjectId(current_user_id)}
 
     # 사용자 검색
     cursor = users_collection.find(search_query).limit(limit)
@@ -153,13 +154,20 @@ async def follow_user(
         )
 
     # 대상 사용자 존재 확인
-    target_object_id = validate_object_id(user_id)
+    try:
+        target_object_id = ObjectId(user_id)
+    except Exception:
+        raise BadRequestException(f"Invalid target user ID format: {user_id}")
+
     target_user = await users_collection.find_one({"_id": target_object_id})
     if not target_user:
         raise NotFoundException("User", user_id)
 
     # 현재 사용자 ID를 ObjectId로 변환
-    current_user_object_id = validate_object_id(current_user.user_id)
+    try:
+        current_user_object_id = ObjectId(current_user.user_id)
+    except Exception:
+        raise BadRequestException(f"Invalid current user ID format: {current_user.user_id}")
 
     # 대상 사용자의 followers에 현재 사용자 추가
     await users_collection.update_one(
@@ -192,13 +200,20 @@ async def unfollow_user(
     users_collection = database["users"]
 
     # 대상 사용자 존재 확인
-    target_object_id = validate_object_id(user_id)
+    try:
+        target_object_id = ObjectId(user_id)
+    except Exception:
+        raise BadRequestException(f"Invalid target user ID format: {user_id}")
+
     target_user = await users_collection.find_one({"_id": target_object_id})
     if not target_user:
         raise NotFoundException("User", user_id)
 
     # 현재 사용자 ID를 ObjectId로 변환
-    current_user_object_id = validate_object_id(current_user.user_id)
+    try:
+        current_user_object_id = ObjectId(current_user.user_id)
+    except Exception:
+        raise BadRequestException(f"Invalid current user ID format: {current_user.user_id}")
 
     # 대상 사용자의 followers에서 현재 사용자 제거
     await users_collection.update_one(

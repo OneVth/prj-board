@@ -153,6 +153,8 @@ function Home() {
               totalPages: 0,
             },
           });
+          // 플래그 해제 필수!
+          isFetchingRef.current = false;
           return;
         }
         response = await postService.getFollowingPosts(
@@ -192,10 +194,15 @@ function Home() {
   // 검색어/정렬/피드타입 변경 시 리셋 및 재로드
   useEffect(() => {
     if (!isInitialMount.current) {
+      // 상태 리셋
+      dispatch({ type: "RESET" });
+      // 플래그 리셋
+      isFetchingRef.current = false;
       // 검색/정렬/피드타입이 변경되면 처음부터 다시 로드
       loadPosts();
     }
-  }, [state.searchQuery, state.sortBy, state.feedType, loadPosts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.searchQuery, state.sortBy, state.feedType]);
 
   // 초기 로드 - Strict Mode 중복 실행 방지 (빈 dependency array로 진정한 mount-only 실행)
   useEffect(() => {
