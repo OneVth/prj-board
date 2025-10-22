@@ -109,4 +109,31 @@ export const postService = {
     });
     return handleResponse<Post>(response);
   },
+
+  /**
+   * 팔로우한 사용자들의 게시글 목록 조회 (인증 필요)
+   * @param page - 페이지 번호 (1부터 시작)
+   * @param limit - 페이지당 게시글 수
+   * @param sortBy - 정렬 기준 (date, likes, comments)
+   * @param accessToken - Access Token
+   */
+  async getFollowingPosts(
+    page = 1,
+    limit = 10,
+    sortBy = "date",
+    accessToken: string
+  ): Promise<PostListResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sort: sortBy,
+    });
+
+    const response = await fetch(`${API_BASE_URL}/posts/following?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return handleResponse<PostListResponse>(response);
+  },
 };

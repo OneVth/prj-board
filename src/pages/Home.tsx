@@ -17,6 +17,7 @@ type HomeState = {
   hasMore: boolean;
   searchQuery: string;
   sortBy: string;
+  feedType: "forYou" | "following"; // 새로운 필드
 };
 
 type HomeAction =
@@ -25,7 +26,8 @@ type HomeAction =
   | { type: "FETCH_ERROR"; payload: string }
   | { type: "RESET" }
   | { type: "SET_SEARCH"; payload: string }
-  | { type: "SET_SORT"; payload: string };
+  | { type: "SET_SORT"; payload: string }
+  | { type: "SET_FEED_TYPE"; payload: "forYou" | "following" };
 
 // ============================================
 // Reducer 함수
@@ -52,18 +54,28 @@ function homeReducer(state: HomeState, action: HomeAction): HomeState {
         ...initialState,
         searchQuery: state.searchQuery,
         sortBy: state.sortBy,
+        feedType: state.feedType,
       };
     case "SET_SEARCH":
       return {
         ...initialState,
         searchQuery: action.payload,
         sortBy: state.sortBy,
+        feedType: state.feedType,
       };
     case "SET_SORT":
       return {
         ...initialState,
         searchQuery: state.searchQuery,
         sortBy: action.payload,
+        feedType: state.feedType,
+      };
+    case "SET_FEED_TYPE":
+      return {
+        ...initialState,
+        feedType: action.payload,
+        searchQuery: state.searchQuery,
+        sortBy: state.sortBy,
       };
     default:
       return state;
@@ -82,6 +94,7 @@ const initialState: HomeState = {
   hasMore: true,
   searchQuery: "",
   sortBy: "date",
+  feedType: "forYou",
 };
 
 // ============================================
@@ -90,7 +103,7 @@ const initialState: HomeState = {
 
 function Home() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, accessToken } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [state, dispatch] = useReducer(homeReducer, {
     ...initialState,
@@ -125,13 +138,37 @@ function Home() {
       const currentPage = stateRef.current.page;
       const currentSearch = stateRef.current.searchQuery;
       const currentSort = stateRef.current.sortBy;
+      const currentFeedType = stateRef.current.feedType;
 
-      const response = await postService.getAllPosts(
-        currentPage,
-        PAGE_SIZE,
-        currentSearch,
-        currentSort
-      );
+      let response;
+
+      // Following 피드는 인증 필요, For You는 인증 불필요
+      if (currentFeedType === "following") {
+        if (!accessToken) {
+          // 인증되지 않은 경우 빈 결과 반환
+          dispatch({
+            type: "FETCH_SUCCESS",
+            payload: {
+              posts: [],
+              totalPages: 0,
+            },
+          });
+          return;
+        }
+        response = await postService.getFollowingPosts(
+          currentPage,
+          PAGE_SIZE,
+          currentSort,
+          accessToken
+        );
+      } else {
+        response = await postService.getAllPosts(
+          currentPage,
+          PAGE_SIZE,
+          currentSearch,
+          currentSort
+        );
+      }
 
       dispatch({
         type: "FETCH_SUCCESS",
@@ -150,15 +187,15 @@ function Home() {
       // 요청 완료 후 플래그 해제 (성공/실패 무관)
       isFetchingRef.current = false;
     }
-  }, []); // No dependencies needed with ref pattern
+  }, [accessToken]); // accessToken dependency added
 
-  // 검색어/정렬 변경 시 리셋 및 재로드
+  // 검색어/정렬/피드타입 변경 시 리셋 및 재로드
   useEffect(() => {
     if (!isInitialMount.current) {
-      // 검색/정렬이 변경되면 처음부터 다시 로드
+      // 검색/정렬/피드타입이 변경되면 처음부터 다시 로드
       loadPosts();
     }
-  }, [state.searchQuery, state.sortBy, loadPosts]);
+  }, [state.searchQuery, state.sortBy, state.feedType, loadPosts]);
 
   // 초기 로드 - Strict Mode 중복 실행 방지 (빈 dependency array로 진정한 mount-only 실행)
   useEffect(() => {
@@ -290,13 +327,43 @@ function Home() {
         </div>
       </header>
 
-      {/* Search and Filter */}
-      <SearchBar
-        onSearch={handleSearch}
-        onSortChange={handleSortChange}
-        initialQuery={state.searchQuery}
-        initialSort={state.sortBy}
-      />
+      {/* Feed Type Tabs - Only show for authenticated users */}
+      {isAuthenticated && (
+        <div className="border-b border-gray-800">
+          <div className="max-w-2xl mx-auto flex">
+            <button
+              onClick={() => dispatch({ type: "SET_FEED_TYPE", payload: "forYou" })}
+              className={`flex-1 py-4 text-center font-semibold transition-colors ${
+                state.feedType === "forYou"
+                  ? "text-white border-b-2 border-white"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              For You
+            </button>
+            <button
+              onClick={() => dispatch({ type: "SET_FEED_TYPE", payload: "following" })}
+              className={`flex-1 py-4 text-center font-semibold transition-colors ${
+                state.feedType === "following"
+                  ? "text-white border-b-2 border-white"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              Following
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filter - Only show for For You feed */}
+      {state.feedType === "forYou" && (
+        <SearchBar
+          onSearch={handleSearch}
+          onSortChange={handleSortChange}
+          initialQuery={state.searchQuery}
+          initialSort={state.sortBy}
+        />
+      )}
 
       {/* Main Content */}
       <main>
@@ -324,13 +391,27 @@ function Home() {
         {/* Empty State */}
         {!state.loading && state.posts.length === 0 && !state.error && (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-gray-500">
-            <p className="text-lg mb-4">No posts yet</p>
-            <Link
-              to="/new"
-              className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
-            >
-              Create your first post
-            </Link>
+            {state.feedType === "following" ? (
+              <>
+                <p className="text-lg mb-4">No posts from followed users</p>
+                <Link
+                  to="/search"
+                  className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Find users to follow
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-lg mb-4">No posts yet</p>
+                <Link
+                  to="/new"
+                  className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Create your first post
+                </Link>
+              </>
+            )}
           </div>
         )}
 
