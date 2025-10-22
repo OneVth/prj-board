@@ -59,11 +59,12 @@ async def search_users(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_profile(
     user_id: str,
-    current_user: Optional[TokenData] = Depends(get_current_user)
+    current_user: Optional[TokenData] = Depends(get_current_user_optional)
 ):
     """
     사용자 프로필 조회
     - **user_id**: 사용자 ID (MongoDB ObjectId)
+    - 인증 선택사항 (isFollowing 상태 계산용)
     """
     database = get_database()
     users_collection = database["users"]
