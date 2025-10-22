@@ -26,6 +26,7 @@ class CommentResponse(BaseModel):
     author_username: str
     created_at: str
     likes: int = 0
+    is_liked: bool = False
 
     model_config = {
         "populate_by_name": True,

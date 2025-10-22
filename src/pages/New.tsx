@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { X, Send } from "lucide-react";
 import { postService } from "../services/postService";
 import { useAuth } from "../contexts/AuthContext";
-import { PostForm } from "../components";
+import { PostForm, Header } from "../components";
+import { Button } from "../components/ui/button";
 import type { PostFormData } from "../types/post";
 
 // ============================================
@@ -46,42 +49,56 @@ function New() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <button
-            onClick={handleCancel}
-            className="text-gray-400 hover:text-white transition-colors"
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <h1 className="text-xl font-bold">New Post</h1>
-          <button
-            onClick={() => {
-              const form = document.querySelector("form");
-              form?.requestSubmit();
-            }}
-            disabled={submitting}
-            className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-              submitting
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-white text-black hover:bg-gray-200"
-            }`}
-          >
-            {submitting ? "Posting..." : "Post"}
-          </button>
+      <Header />
+
+      {/* Action Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="border-b border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto py-3 flex justify-between items-center">
+            <Button
+              onClick={handleCancel}
+              disabled={submitting}
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-base"
+            >
+              <X className="w-5 h-5" />
+              <span>Cancel</span>
+            </Button>
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              New Post
+            </h1>
+            <Button
+              onClick={() => {
+                const form = document.querySelector("form");
+                form?.requestSubmit();
+              }}
+              disabled={submitting}
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full text-base font-bold"
+            >
+              <Send className="w-5 h-5" />
+              <span>{submitting ? "Posting..." : "Post"}</span>
+            </Button>
+          </div>
         </div>
-      </header>
+      </motion.div>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <PostForm
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          submitButtonText="Post"
-          isSubmitting={submitting}
-          error={error}
-        />
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-2xl mx-auto">
+          <PostForm
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            submitButtonText="Post"
+            isSubmitting={submitting}
+            error={error}
+          />
+        </div>
       </main>
     </div>
   );

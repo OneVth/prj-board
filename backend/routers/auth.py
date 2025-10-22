@@ -67,6 +67,8 @@ async def register(user_data: UserRegister):
         "email": user_data.email,
         "password": hashed_password,
         "created_at": datetime.utcnow().isoformat() + "Z",
+        "followers": [],  # 팔로워 목록 초기화
+        "following": [],  # 팔로잉 목록 초기화
     }
 
     result = await users_collection.insert_one(new_user)
@@ -145,10 +147,11 @@ async def get_current_user_info(current_user: TokenData = Depends(get_current_us
     현재 로그인한 사용자 정보 조회
     - Authorization 헤더에 Access Token 필요
     """
+    from bson import ObjectId
     database = get_database()
     users_collection = database["users"]
 
-    object_id = validate_object_id(current_user.user_id)
+    object_id = ObjectId(current_user.user_id)
     user = await users_collection.find_one({"_id": object_id})
 
     if not user:

@@ -10,6 +10,7 @@ export interface Comment {
   readonly authorUsername: string; // 작성자 이름
   readonly createdAt: string; // 댓글 생성 날짜; ISO 8601 날짜 문자열
   likes: number; // 좋아요 수
+  isLiked: boolean; // 현재 사용자의 좋아요 여부
 }
 
 /**

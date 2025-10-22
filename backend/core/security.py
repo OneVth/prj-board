@@ -177,6 +177,24 @@ async def get_current_user(
     return verify_token(token, token_type="access")
 
 
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+) -> Optional[TokenData]:
+    """
+    현재 로그인한 사용자 정보 가져오기 (선택적)
+    - Authorization 헤더가 없어도 에러를 발생시키지 않음
+    - 인증된 사용자면 TokenData 반환, 아니면 None 반환
+    """
+    if credentials is None:
+        return None
+
+    try:
+        token = credentials.credentials
+        return verify_token(token, token_type="access")
+    except HTTPException:
+        return None
+
+
 async def get_refresh_token_from_cookie(request: Request) -> str:
     """
     쿠키에서 Refresh Token 가져오기

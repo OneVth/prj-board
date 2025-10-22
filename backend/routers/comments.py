@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime
 
 from core.database import get_database
-from core.security import get_current_user, TokenData
+from core.security import get_current_user, get_current_user_optional, TokenData
 from models import CommentCreate, CommentResponse
 from utils import comment_helper, validate_object_id
 
@@ -53,11 +53,14 @@ async def create_comment(
     result = await comments_collection.insert_one(new_comment)
     created_comment = await comments_collection.find_one({"_id": result.inserted_id})
 
-    return await comment_helper(created_comment)
+    return await comment_helper(created_comment, current_user.user_id)
 
 
 @router.get("/api/posts/{post_id}/comments", response_model=list[CommentResponse])
-async def get_comments(post_id: str):
+async def get_comments(
+    post_id: str,
+    current_user: TokenData | None = Depends(get_current_user_optional),
+):
     """
     특정 게시글의 댓글 목록 조회
     - **post_id**: 게시글 ID
@@ -79,7 +82,58 @@ async def get_comments(post_id: str):
     cursor = comments_collection.find({"post_id": post_object_id}).sort("created_at", 1)
     comments = await cursor.to_list(length=None)
 
-    return [await comment_helper(comment) for comment in comments]
+    current_user_id = current_user.user_id if current_user else None
+    return [await comment_helper(comment, current_user_id) for comment in comments]
+
+
+@router.patch("/api/comments/{comment_id}/like", response_model=CommentResponse)
+async def like_comment(comment_id: str, current_user: TokenData = Depends(get_current_user)):
+    """
+    댓글 좋아요 토글 (인증 필요)
+    - **comment_id**: 댓글 ID
+    - 이미 좋아요를 누른 경우 좋아요 취소
+    - 처음 누르는 경우 좋아요 추가
+    """
+    database = get_database()
+    comments_collection = database["comments"]
+
+    object_id = validate_object_id(comment_id)
+    user_id = current_user.user_id
+
+    # 댓글 존재 확인
+    comment = await comments_collection.find_one({"_id": object_id})
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment with id {comment_id} not found",
+        )
+
+    # liked_by 필드가 없으면 빈 배열로 초기화
+    if "liked_by" not in comment:
+        comment["liked_by"] = []
+
+    # 이미 좋아요를 눌렀는지 확인
+    if user_id in comment["liked_by"]:
+        # 좋아요 취소: liked_by 배열에서 user_id 제거, likes 감소
+        result = await comments_collection.update_one(
+            {"_id": object_id},
+            {
+                "$pull": {"liked_by": user_id},
+                "$inc": {"likes": -1}
+            }
+        )
+    else:
+        # 좋아요 추가: liked_by 배열에 user_id 추가, likes 증가
+        result = await comments_collection.update_one(
+            {"_id": object_id},
+            {
+                "$addToSet": {"liked_by": user_id},
+                "$inc": {"likes": 1}
+            }
+        )
+
+    updated_comment = await comments_collection.find_one({"_id": object_id})
+    return await comment_helper(updated_comment, current_user.user_id)
 
 
 @router.delete("/api/comments/{comment_id}", response_model=dict)

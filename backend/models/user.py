@@ -46,6 +46,9 @@ class UserResponse(BaseModel):
     username: str
     email: str
     created_at: str
+    follower_count: int = 0
+    following_count: int = 0
+    is_following: bool = False  # 현재 사용자가 이 사용자를 팔로우하는지 여부
 
     model_config = {
         "populate_by_name": True,

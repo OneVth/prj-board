@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
+import { Header } from "../components";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 
 function Login() {
   const navigate = useNavigate();
@@ -43,33 +47,37 @@ function Login() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 bg-black border-b border-gray-800 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            ← Back
-          </button>
-          <h1 className="text-lg font-semibold">Login</h1>
-          <div className="w-14"></div>
-        </div>
-      </header>
+      <Header />
 
       {/* Login Form */}
-      <div className="max-w-md mx-auto px-4 py-8">
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-          <h2 className="text-2xl font-bold mb-6 text-center">
+      <div className="max-w-md mx-auto px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="relative bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl"
+        >
+          {/* Gradient glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 rounded-2xl blur-xl -z-10" />
+
+          <h2 className="text-3xl font-bold mb-2 text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Welcome Back
           </h2>
+          <p className="text-gray-400 text-center mb-8 text-sm">
+            Sign in to continue to Board
+          </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
               <label
@@ -78,15 +86,16 @@ function Login() {
               >
                 Email
               </label>
-              <input
+              <Input
                 type="email"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
                 placeholder="your@email.com"
                 disabled={loading}
+                required
+                className="h-11"
               />
             </div>
 
@@ -98,26 +107,27 @@ function Login() {
               >
                 Password
               </label>
-              <input
+              <Input
                 type="password"
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
                 placeholder="••••••••"
                 disabled={loading}
+                required
+                className="h-11"
               />
             </div>
 
             {/* Submit Button */}
-            <button
+            <Button
               type="submit"
               disabled={loading || !formData.email || !formData.password}
-              className="w-full bg-white text-black font-semibold py-3 rounded-full hover:bg-gray-200 transition-colors disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+              className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-full shadow-lg shadow-purple-500/50 transition-all"
             >
               {loading ? "Logging in..." : "Login"}
-            </button>
+            </Button>
           </form>
 
           {/* Register Link */}
@@ -125,12 +135,12 @@ function Login() {
             Don't have an account?{" "}
             <Link
               to="/register"
-              className="text-white hover:underline font-medium"
+              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
             >
               Sign up
             </Link>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

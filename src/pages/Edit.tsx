@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { X, Save } from "lucide-react";
 import { postService } from "../services/postService";
 import { useAuth } from "../contexts/AuthContext";
-import { LoadingSpinner, PostForm } from "../components";
+import { LoadingSpinner, PostForm, Header } from "../components";
+import { Button } from "../components/ui/button";
 import type { Post, PostFormData } from "../types/post";
 
 // ============================================
@@ -102,44 +105,59 @@ function Edit() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <button
-            onClick={handleCancel}
-            className="text-gray-400 hover:text-white transition-colors"
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <h1 className="text-xl font-bold">Edit Post</h1>
-          <button
-            onClick={() => {
-              const form = document.querySelector("form");
-              form?.requestSubmit();
-            }}
-            disabled={submitting}
-            className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-              submitting
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-white text-black hover:bg-gray-200"
-            }`}
-          >
-            {submitting ? "Updating..." : "Update"}
-          </button>
+      <Header />
+
+      {/* Action Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="border-b border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto py-3 flex justify-between items-center">
+            <Button
+              onClick={handleCancel}
+              disabled={submitting}
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-base"
+            >
+              <X className="w-5 h-5" />
+              <span>Cancel</span>
+            </Button>
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Edit Post
+            </h1>
+            <Button
+              onClick={() => {
+                const form = document.querySelector("form");
+                form?.requestSubmit();
+              }}
+              disabled={submitting}
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full text-base font-bold"
+            >
+              <Save className="w-5 h-5" />
+              <span>{submitting ? "Updating..." : "Update"}</span>
+            </Button>
+          </div>
         </div>
-      </header>
+      </motion.div>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <PostForm
-          initialTitle={post.title}
-          initialContent={post.content}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          submitButtonText="Update"
-          isSubmitting={submitting}
-          error={error}
-        />
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-2xl mx-auto">
+          <PostForm
+            initialTitle={post.title}
+            initialContent={post.content}
+            initialImage={post.image}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            submitButtonText="Update"
+            isSubmitting={submitting}
+            error={error}
+          />
+        </div>
       </main>
     </div>
   );

@@ -22,7 +22,9 @@ This project is created for hands-on practice with:
 - Vite
 - React Router v7
 - TailwindCSS v4
+- Framer Motion (animations)
 - React Context API
+- Lucide React (icons)
 
 ### Backend
 
@@ -136,23 +138,31 @@ docker-compose down     # Stop MongoDB
 prj-board/
 ├── src/
 │   ├── pages/              # Page components
-│   │   ├── Home.tsx        # Infinite scroll feed
+│   │   ├── Home.tsx        # Infinite scroll feed with For You/Following tabs
 │   │   ├── Article.tsx     # Post detail with comments
-│   │   ├── New.tsx         # Create post
+│   │   ├── New.tsx         # Create post with image upload
 │   │   ├── Edit.tsx        # Edit post
+│   │   ├── Profile.tsx     # User profile with Posts/Comments tabs + followers/following modal
+│   │   ├── Search.tsx      # User search page
 │   │   ├── Login.tsx       # User login
 │   │   ├── Register.tsx    # User registration
 │   │   └── NotFound.tsx    # 404 page
 │   ├── components/         # Reusable components
 │   │   ├── post/           # Post-related components
 │   │   ├── comment/        # Comment-related components
+│   │   ├── user/           # User-related components
+│   │   │   └── UserListModal.tsx  # Followers/Following list modal
 │   │   └── ProtectedRoute.tsx
 │   ├── contexts/           # React Context
 │   │   └── AuthContext.tsx # Authentication state
 │   ├── services/           # API service layer
+│   │   ├── api/            # API configuration
 │   │   ├── postService.ts
 │   │   ├── commentService.ts
-│   │   └── authService.ts
+│   │   ├── authService.ts
+│   │   └── userService.ts
+│   ├── hooks/              # Custom React hooks
+│   │   └── useInfiniteScroll.ts
 │   ├── types/              # TypeScript type definitions
 │   │   ├── post.ts
 │   │   ├── comment.ts
@@ -161,7 +171,18 @@ prj-board/
 │       └── dateFormat.ts
 ├── backend/
 │   ├── main.py             # FastAPI application
-│   ├── auth.py             # JWT authentication utilities
+│   ├── routers/            # API route modules
+│   │   ├── auth.py         # Authentication endpoints
+│   │   ├── posts.py        # Post endpoints
+│   │   ├── users.py        # User endpoints
+│   │   └── comments.py     # Comment endpoints
+│   ├── core/               # Core utilities
+│   │   ├── database.py     # MongoDB connection
+│   │   ├── security.py     # JWT authentication
+│   │   └── exceptions.py   # Custom exceptions
+│   ├── models/             # Pydantic models
+│   ├── utils/              # Helper functions
+│   ├── seed_data.py        # Dummy data generation script
 │   ├── .env                # Environment variables
 │   └── requirements.txt
 ├── docker-compose.yml      # MongoDB configuration
@@ -176,27 +197,50 @@ prj-board/
 - Access token (15 min) + Refresh token (7 days) strategy
 - Access tokens in memory, Refresh tokens in HTTPOnly cookies
 - Protected routes for authenticated users only
+- **Optional authentication** - non-logged-in users can browse posts
 - Password hashing with bcrypt
 
 ### Post Management
 - Create, read, update, delete posts (CRUD)
+- **Image upload and display** (single image per post, base64 encoding)
+- **500 character limit** for post content
 - Infinite scroll feed with pagination
-- Like functionality
-- Author information display
+- **Persistent like state** - likes maintained across page navigation
+- **Like toggle system** (one like per user, prevent duplicates)
+- Author information display with profile links
 - Edit/Delete permissions (author only)
+- Search and sorting (by date, likes, comments)
+
+### Social Features
+- **User profiles** with Posts and Comments tabs
+- **User search** with real-time filtering
+- **Follow/Unfollow system** with follower/following counts
+- **Followers/Following list modal** - click counts to see detailed user lists
+- **Follow within modal** - follow/unfollow directly from the user list
+- **For You / Following feed tabs** - view all posts or only from followed users
+- Profile navigation from author names
+- **Non-authenticated browsing** - view profiles without login
 
 ### Comment System
 - Create and delete comments
-- Author information display
+- **Comment like functionality with persistent state**
+- **Visual like indicator** (❤️/🤍 emoji toggle)
+- Author information display with profile links
 - Delete permissions (author only)
 - Real-time comment count
 
-### UI/UX
-- Instagram/X-inspired dark theme
-- Responsive design
+### UI/UX Design
+- **Glassmorphism design system** - modern frosted glass effect
+- **Instagram/X-inspired dark theme** with purple-pink gradients
+- **Framer Motion animations** - smooth page transitions and interactions
+- **Animated tab navigation** - For You/Following and Profile tabs
+- **Sticky headers** with backdrop blur effects
+- **Gradient avatars** with first letter of username
+- **Modern action bars** with glassmorphic styling
+- **Responsive design** optimized for all screen sizes
 - Type-safe API communication
 - Loading states and error handling
-- Smooth transitions and animations
+- Optimized performance with custom hooks
 
 ## API Endpoints
 
@@ -208,43 +252,89 @@ prj-board/
 - `GET /api/auth/me` - Get current user info
 
 ### Posts
-- `GET /api/posts?page={page}&limit={limit}` - Get posts with pagination
+- `GET /api/posts?page={page}&limit={limit}&q={query}&sort={sort}` - Get posts with pagination, search, and sorting
+- `GET /api/posts/following?page={page}&limit={limit}&sort={sort}` - Get posts from followed users (requires auth)
 - `GET /api/posts/{id}` - Get single post
-- `POST /api/posts` - Create post (requires auth)
+- `POST /api/posts` - Create post with optional image (requires auth)
 - `PUT /api/posts/{id}` - Update post (requires auth, author only)
-- `PATCH /api/posts/{id}/like` - Like post
+- `PATCH /api/posts/{id}/like` - Toggle like on post (requires auth)
 - `DELETE /api/posts/{id}` - Delete post (requires auth, author only)
+
+### Users
+- `GET /api/users/search?q={query}` - Search users by username (excludes current user if authenticated)
+- `GET /api/users/{user_id}` - Get user profile with follower/following counts
+- `GET /api/users/{user_id}/posts?page={page}&limit={limit}` - Get user's posts
+- `GET /api/users/{user_id}/comments?page={page}&limit={limit}` - Get user's comments
+- `GET /api/users/{user_id}/followers` - Get user's followers list (optional auth for isFollowing status)
+- `GET /api/users/{user_id}/following` - Get users that this user follows (optional auth for isFollowing status)
+- `POST /api/users/{user_id}/follow` - Follow user (requires auth)
+- `DELETE /api/users/{user_id}/follow` - Unfollow user (requires auth)
 
 ### Comments
 - `GET /api/posts/{post_id}/comments` - Get comments for a post
 - `POST /api/posts/{post_id}/comments` - Create comment (requires auth)
+- `PATCH /api/comments/{comment_id}/like` - Toggle like on comment (requires auth)
 - `DELETE /api/comments/{comment_id}` - Delete comment (requires auth, author only)
 
 ## Testing the Application
 
-1. **Register a new user**
+1. **Register and login**
    - Navigate to `/register`
    - Fill in username, email, and password
    - Auto-login after registration
 
-2. **Create a post**
+2. **Create posts**
    - Click "New Post" in the header (requires login)
    - Write title and content
+   - Optionally upload an image
    - Submit to create
 
-3. **View and interact**
-   - Browse posts in the home feed
+3. **Browse and interact**
+   - Browse posts in the **For You** feed (all posts)
+   - Like posts (toggle like by clicking again)
    - Click a post to view details
-   - Like posts
-   - Add comments (requires login)
+   - Add and like comments (requires login)
+   - Sort by date, likes, or comments
 
-4. **Edit/Delete**
+4. **User profiles and social features**
+   - Click on any username to view their profile
+   - See their posts and comments in separate tabs
+   - Follow/Unfollow users
+   - View follower/following counts
+   - **Click on Followers/Following counts** to see detailed user lists
+   - Follow/Unfollow directly from the modal
+
+5. **Search and follow**
+   - Use the search page to find users
+   - Follow users you're interested in
+   - Switch to **Following** tab to see posts from followed users only
+
+6. **Edit and delete**
    - Only your own posts show Edit/Delete buttons
    - Only your own comments show Delete button
+   - Edit posts with updated content or images
 
-5. **Logout and test permissions**
+7. **Test permissions**
    - Logout to see protected routes redirect to login
    - Try accessing `/new` without auth
+   - Verify you can't edit/delete other users' content
+
+## Dummy Data Generation
+
+To populate the database with test data for development:
+
+```bash
+cd backend
+python seed_data.py
+```
+
+This generates:
+- 10 test users (user0@example.com to user9@example.com, password: password123)
+- 100 posts with realistic content
+- 300 comments
+- Random follow relationships
+- Random likes on posts and comments
+- Database indexes for performance
 
 ## Learning Resources
 

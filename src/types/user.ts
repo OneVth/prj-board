@@ -7,6 +7,9 @@ export interface User {
   username: string;
   email: string;
   createdAt: string;
+  followerCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
 }
 
 export interface LoginRequest {

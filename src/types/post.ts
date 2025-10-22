@@ -11,6 +11,8 @@ export interface Post {
   commentCount: number; // 댓글 수
   readonly authorId: string; // 작성자 ID
   readonly authorUsername: string; // 작성자 이름
+  image?: string | null; // 이미지 (base64 인코딩된 문자열)
+  isLiked: boolean; // 현재 사용자의 좋아요 여부
 }
 
 /**
@@ -20,6 +22,7 @@ export interface Post {
 export interface PostFormData {
   title: string;
   content: string;
+  image?: string | null; // 이미지 (base64 인코딩된 문자열)
 }
 
 /**

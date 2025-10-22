@@ -1,10 +1,13 @@
 import { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Trash2, Edit3 } from "lucide-react";
 import { postService } from "../services/postService";
 import { commentService } from "../services/commentService";
 import { useAuth } from "../contexts/AuthContext";
 import { formatTime } from "../utils/dateFormat";
-import { LoadingSpinner, CommentForm, CommentList } from "../components";
+import { LoadingSpinner, CommentForm, CommentList, Header } from "../components";
+import { Button } from "../components/ui/button";
 import type { Post } from "../types/post";
 import type { Comment, CommentFormData } from "../types/comment";
 
@@ -43,7 +46,8 @@ type ArticleAction =
   | { type: "COMMENT_SUBMIT_START" }
   | { type: "COMMENT_SUBMIT_SUCCESS"; payload: Comment }
   | { type: "COMMENT_SUBMIT_ERROR" }
-  | { type: "COMMENT_DELETE_SUCCESS"; payload: string };
+  | { type: "COMMENT_DELETE_SUCCESS"; payload: string }
+  | { type: "COMMENT_LIKE_SUCCESS"; payload: Comment };
 
 // ============================================
 // Reducer 함수
@@ -62,6 +66,7 @@ function articleReducer(
         loading: false,
         post: action.payload,
         error: null,
+        isLiked: action.payload.isLiked,
       };
     case "FETCH_ERROR":
       return { ...state, loading: false, error: action.payload };
@@ -72,7 +77,7 @@ function articleReducer(
         ...state,
         liking: false,
         post: action.payload,
-        isLiked: true,
+        isLiked: action.payload.isLiked,
       };
     case "LIKE_ERROR":
       return { ...state, liking: false };
@@ -108,6 +113,13 @@ function articleReducer(
       return {
         ...state,
         comments: state.comments.filter((c) => c.id !== action.payload),
+      };
+    case "COMMENT_LIKE_SUCCESS":
+      return {
+        ...state,
+        comments: state.comments.map((c) =>
+          c.id === action.payload.id ? action.payload : c
+        ),
       };
     default:
       return state;
@@ -153,7 +165,7 @@ function Article() {
       dispatch({ type: "FETCH_START" });
 
       try {
-        const post = await postService.getPostById(id);
+        const post = await postService.getPostById(id, accessToken || undefined);
         dispatch({ type: "FETCH_SUCCESS", payload: post });
       } catch (error) {
         dispatch({
@@ -168,7 +180,7 @@ function Article() {
       isInitialMount.current = false;
       loadPost();
     }
-  }, [id]);
+  }, [id, accessToken]);
 
   // 댓글 불러오기
   useEffect(() => {
@@ -178,7 +190,7 @@ function Article() {
       dispatch({ type: "COMMENTS_FETCH_START" });
 
       try {
-        const comments = await commentService.getCommentsByPostId(id);
+        const comments = await commentService.getCommentsByPostId(id, accessToken || undefined);
         dispatch({ type: "COMMENTS_FETCH_SUCCESS", payload: comments });
       } catch (error) {
         dispatch({
@@ -194,20 +206,21 @@ function Article() {
     if (state.post) {
       loadComments();
     }
-  }, [id, state.post]);
+  }, [id, state.post, accessToken]);
 
   // 좋아요 핸들러
   const handleLike = async () => {
-    if (!id || state.liking) return;
+    if (!id || state.liking || !accessToken) return;
 
     dispatch({ type: "LIKE_START" });
 
     try {
-      const updatedPost = await postService.likePost(id);
+      const updatedPost = await postService.likePost(id, accessToken);
       dispatch({ type: "LIKE_SUCCESS", payload: updatedPost });
     } catch (error) {
       dispatch({ type: "LIKE_ERROR" });
       console.error("Failed to like post:", error);
+      alert("좋아요에 실패했습니다. 로그인이 필요합니다.");
     }
   };
 
@@ -265,6 +278,22 @@ function Article() {
     }
   };
 
+  // 댓글 좋아요 핸들러
+  const handleCommentLike = async (commentId: string) => {
+    if (!accessToken) {
+      alert("좋아요를 누르려면 로그인이 필요합니다.");
+      return;
+    }
+
+    try {
+      const updatedComment = await commentService.likeComment(commentId, accessToken);
+      dispatch({ type: "COMMENT_LIKE_SUCCESS", payload: updatedComment });
+    } catch (error) {
+      console.error("Failed to like comment:", error);
+      throw error; // CommentItem에서 에러 처리
+    }
+  };
+
   // ============================================
   // 렌더링
   // ============================================
@@ -302,118 +331,177 @@ function Article() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <button
-            onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-white transition-colors"
-            disabled={state.deleting}
-          >
-            ← Back
-          </button>
-          {isAuthor && (
-            <div className="flex items-center gap-3">
-              <button
+      <Header />
+
+      {/* Action Bar - Only for authors */}
+      {isAuthor && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border-b border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm"
+        >
+          <div className="max-w-2xl mx-auto px-4 py-3 flex justify-end items-center gap-3">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
                 onClick={handleDelete}
                 disabled={state.deleting}
-                className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-                  state.deleting
-                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    : "bg-red-600 text-white hover:bg-red-700"
-                }`}
+                variant="outline"
+                className="rounded-full border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-all hover:border-white/30 hover:bg-white/10"
               >
-                {state.deleting ? "Deleting..." : "Delete"}
-              </button>
-              <Link
-                to={`/edit/${post.id}`}
-                className={`px-4 py-2 bg-white font-bold text-black rounded-full transition-colors ${
-                  state.deleting
-                    ? "pointer-events-none opacity-50"
-                    : "hover:bg-gray-200"
-                }`}
-              >
-                Edit
+                <span className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  <span>{state.deleting ? "Deleting..." : "Delete"}</span>
+                </span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link to={`/edit/${post.id}`}>
+                <Button
+                  disabled={state.deleting}
+                  className="relative overflow-hidden rounded-full bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-purple-500/50"
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "100%" }}
+                    transition={{ duration: 0.5 }}
+                  />
+                  <span className="relative flex items-center gap-2">
+                    <Edit3 className="h-4 w-4" />
+                    <span>Edit</span>
+                  </span>
+                </Button>
               </Link>
-            </div>
-          )}
-        </div>
-      </header>
+            </motion.div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        {/* Author Info */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
-            {post.authorUsername?.[0]?.toUpperCase() || "?"}
-          </div>
-          <div>
-            <p className="font-semibold text-lg">{post.authorUsername || "Unknown"}</p>
-            <p className="text-sm text-gray-500">
-              {formatTime(post.createdAt)}
-            </p>
-          </div>
-        </div>
-
-        {/* Post Title */}
-        <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
-
-        {/* Post Content */}
-        <article className="mb-6">
-          <p className="text-white text-lg leading-relaxed whitespace-pre-wrap">
-            {post.content}
-          </p>
-        </article>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-6 py-4 border-y border-gray-800 mb-6">
-          <button
-            onClick={handleLike}
-            disabled={state.liking}
-            className={`flex items-center gap-2 transition-colors ${
-              state.isLiked
-                ? "text-red-500"
-                : "text-gray-400 hover:text-red-500"
-            } ${state.liking ? "opacity-50 cursor-not-allowed" : ""}`}
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="max-w-2xl mx-auto"
+        >
+          {/* Author Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <span className="text-2xl">{state.isLiked ? "❤️" : "🤍"}</span>
-            <span className="font-semibold">{post.likes}</span>
-          </button>
-          <button className="flex items-center gap-2 text-gray-400 hover:text-blue-500 transition-colors">
-            <span className="text-2xl">💬</span>
-            <span className="font-semibold">{state.comments.length}</span>
-          </button>
-          <button className="flex items-center gap-2 text-gray-400 hover:text-green-500 transition-colors">
-            <span className="text-2xl">📤</span>
-            <span className="font-semibold">Share</span>
-          </button>
-        </div>
+            <Link
+              to={`/profile/${post.authorId}`}
+              className="flex items-center gap-3 mb-6 p-4 rounded-2xl bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all w-fit"
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
+                {post.authorUsername?.[0]?.toUpperCase() || "?"}
+              </div>
+              <div>
+                <p className="font-semibold text-lg hover:underline">{post.authorUsername || "Unknown"}</p>
+                <p className="text-sm text-gray-500">
+                  {formatTime(post.createdAt)}
+                </p>
+              </div>
+            </Link>
+          </motion.div>
 
-        {/* Comments Section */}
-        <section className="mt-8">
-          {/* Comments List */}
-          {state.commentsLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          {/* Post Content Container */}
+          <motion.article
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            whileHover={{ scale: 1.005 }}
+            className="relative p-6 rounded-2xl bg-gradient-to-br from-gray-900/50 to-black/50 hover:from-white/[0.08] hover:to-white/[0.02] backdrop-blur-xl border border-white/10 mb-6 transition-all duration-300 group"
+          >
+            {/* Gradient border on hover */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 blur-xl" />
             </div>
-          ) : state.commentsError ? (
-            <div className="text-center py-8 text-red-400">
-              {state.commentsError}
-            </div>
-          ) : (
-            <CommentList
-              comments={state.comments}
-              onDelete={handleCommentDelete}
-            />
-          )}
+            <div className="relative z-10">
+              {/* Post Title */}
+              <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent group-hover:from-purple-300 group-hover:to-pink-300 transition-all duration-300">
+                {post.title}
+              </h1>
 
-          {/* Comment Form */}
-          <div className="mt-6">
-            <CommentForm
-              onSubmit={handleCommentSubmit}
-              isSubmitting={state.submittingComment}
-            />
-          </div>
-        </section>
+              {/* Post Content */}
+              <p className="text-white text-lg leading-relaxed whitespace-pre-wrap mb-6">
+                {post.content}
+              </p>
+
+              {/* Post Image */}
+              {post.image && (
+                <div className="mt-4">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full rounded-lg border border-white/10"
+                  />
+                </div>
+              )}
+            </div>
+          </motion.article>
+
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+            className="flex items-center justify-end gap-6 p-5 rounded-2xl bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl border border-white/10 mb-6"
+          >
+            <button
+              onClick={handleLike}
+              disabled={state.liking}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                state.isLiked
+                  ? "text-red-400"
+                  : "text-gray-400"
+              } ${state.liking ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              <span className="text-xl">{state.isLiked ? "❤️" : "🤍"}</span>
+              <span className="font-medium">{post.likes}</span>
+            </button>
+
+            <button className="flex items-center gap-2 px-4 py-2 rounded-full text-gray-400">
+              <span className="text-xl">💬</span>
+              <span className="font-medium">{state.comments.length}</span>
+            </button>
+          </motion.div>
+
+          {/* Comments Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4 }}
+            className="p-6 rounded-2xl bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl border border-white/10"
+          >
+            {/* Comments List */}
+            {state.commentsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : state.commentsError ? (
+              <div className="text-center py-8 text-red-400">
+                {state.commentsError}
+              </div>
+            ) : (
+              <CommentList
+                comments={state.comments}
+                onDelete={handleCommentDelete}
+                onLike={handleCommentLike}
+              />
+            )}
+
+            {/* Comment Form */}
+            <div className="mt-6">
+              <CommentForm
+                onSubmit={handleCommentSubmit}
+                isSubmitting={state.submittingComment}
+              />
+            </div>
+          </motion.section>
+        </motion.div>
       </main>
     </div>
   );

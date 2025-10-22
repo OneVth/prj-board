@@ -11,6 +11,7 @@ class PostCreate(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200, description="게시글 제목")
     content: str = Field(..., min_length=1, description="게시글 본문")
+    image: str | None = Field(None, description="이미지 (base64 인코딩된 문자열)")
 
     model_config = {
         "json_schema_extra": {
@@ -18,6 +19,7 @@ class PostCreate(BaseModel):
                 {
                     "title": "첫 번째 게시글",
                     "content": "FastAPI와 MongoDB로 만든 게시판입니다.",
+                    "image": None,
                 }
             ]
         }
@@ -31,10 +33,11 @@ class PostUpdate(BaseModel):
         None, min_length=1, max_length=200, description="게시글 제목"
     )
     content: str | None = Field(None, min_length=1, description="게시글 본문")
+    image: str | None = Field(None, description="이미지 (base64 인코딩된 문자열)")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"title": "수정된 제목", "content": "수정된 내용입니다."}]
+            "examples": [{"title": "수정된 제목", "content": "수정된 내용입니다.", "image": None}]
         }
     }
 
@@ -50,6 +53,8 @@ class PostResponse(BaseModel):
     comment_count: int = 0
     author_id: str
     author_username: str
+    image: str | None = None
+    is_liked: bool = False
 
     model_config = {
         "populate_by_name": True,
@@ -64,6 +69,7 @@ class PostResponse(BaseModel):
                     "created_at": "2025-10-21T10:30:00.000Z",
                     "likes": 5,
                     "commentCount": 3,
+                    "image": None,
                 }
             ]
         },
