@@ -64,12 +64,12 @@ function New() {
               disabled={submitting}
               variant="ghost"
               size="sm"
-              className="rounded-full"
+              className="rounded-full text-base"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
               <span>Cancel</span>
             </Button>
-            <h1 className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               New Post
             </h1>
             <Button
@@ -79,9 +79,9 @@ function New() {
               }}
               disabled={submitting}
               size="sm"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full text-base font-bold"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5" />
               <span>{submitting ? "Posting..." : "Post"}</span>
             </Button>
           </div>
