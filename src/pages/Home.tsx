@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { postService } from "../services/postService";
 import { PostCard, SearchBar, Header } from "../components";
 import { useAuth } from "../contexts/AuthContext";
@@ -278,27 +279,41 @@ function Home() {
 
       {/* Feed Type Tabs - Only show for authenticated users */}
       {isAuthenticated && (
-        <div className="border-b border-gray-800">
-          <div className="max-w-2xl mx-auto flex">
+        <div className="border-b border-white/10 bg-black/50 backdrop-blur-sm sticky top-[73px] z-40">
+          <div className="max-w-2xl mx-auto flex relative">
             <button
               onClick={() => dispatch({ type: "SET_FEED_TYPE", payload: "forYou" })}
-              className={`flex-1 py-4 text-center font-semibold transition-colors ${
+              className={`relative flex-1 py-4 text-center font-semibold transition-all duration-300 ${
                 state.feedType === "forYou"
-                  ? "text-white border-b-2 border-white"
+                  ? "text-white"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
               For You
+              {state.feedType === "forYou" && (
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500"
+                  layoutId="activeTab"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
             </button>
             <button
               onClick={() => dispatch({ type: "SET_FEED_TYPE", payload: "following" })}
-              className={`flex-1 py-4 text-center font-semibold transition-colors ${
+              className={`relative flex-1 py-4 text-center font-semibold transition-all duration-300 ${
                 state.feedType === "following"
-                  ? "text-white border-b-2 border-white"
+                  ? "text-white"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
               Following
+              {state.feedType === "following" && (
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500"
+                  layoutId="activeTab"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
             </button>
           </div>
         </div>
