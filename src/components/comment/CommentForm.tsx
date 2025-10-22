@@ -16,42 +16,26 @@ interface CommentFormProps {
 
 function CommentForm({ onSubmit, isSubmitting }: CommentFormProps) {
   const [content, setContent] = useState("");
-  const [author, setAuthor] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!content.trim() || !author.trim()) {
+    if (!content.trim()) {
       return;
     }
 
     await onSubmit({
       content: content.trim(),
-      author: author.trim(),
     });
 
     // 제출 성공 시 폼 초기화
     setContent("");
-    setAuthor("");
   };
 
-  const isSubmitDisabled = !content.trim() || !author.trim() || isSubmitting;
+  const isSubmitDisabled = !content.trim() || isSubmitting;
 
   return (
     <form onSubmit={handleSubmit} className="border-t border-gray-800 pt-4">
-      {/* Author Input */}
-      <div className="mb-3">
-        <input
-          type="text"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          placeholder="이름"
-          maxLength={50}
-          className="w-full bg-gray-900 text-white px-3 py-2 rounded-lg placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-800"
-          disabled={isSubmitting}
-        />
-      </div>
-
       {/* Comment Input */}
       <div className="mb-3">
         <textarea

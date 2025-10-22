@@ -238,12 +238,12 @@ function Article() {
 
   // 댓글 작성 핸들러
   const handleCommentSubmit = async (data: CommentFormData) => {
-    if (!id) return;
+    if (!id || !accessToken) return;
 
     dispatch({ type: "COMMENT_SUBMIT_START" });
 
     try {
-      const newComment = await commentService.createComment(id, data);
+      const newComment = await commentService.createComment(id, data, accessToken);
       dispatch({ type: "COMMENT_SUBMIT_SUCCESS", payload: newComment });
     } catch (error) {
       dispatch({ type: "COMMENT_SUBMIT_ERROR" });
@@ -254,8 +254,10 @@ function Article() {
 
   // 댓글 삭제 핸들러
   const handleCommentDelete = async (commentId: string) => {
+    if (!accessToken) return;
+
     try {
-      await commentService.deleteComment(commentId);
+      await commentService.deleteComment(commentId, accessToken);
       dispatch({ type: "COMMENT_DELETE_SUCCESS", payload: commentId });
     } catch (error) {
       console.error("Failed to delete comment:", error);

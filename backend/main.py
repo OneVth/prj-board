@@ -101,15 +101,13 @@ class CommentCreate(BaseModel):
     """
     댓글 작성 시 사용하는 모델
     - content: 댓글 내용 (필수)
-    - author: 작성자 이름 (필수, 임시)
     """
 
     content: str = Field(..., min_length=1, max_length=500, description="댓글 내용")
-    author: str = Field(..., min_length=1, max_length=50, description="작성자 이름")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"content": "좋은 글이네요!", "author": "익명"}]
+            "examples": [{"content": "좋은 글이네요!"}]
         }
     }
 
@@ -120,7 +118,8 @@ class CommentResponse(BaseModel):
     - id: 댓글 ID
     - post_id: 게시글 ID
     - content: 댓글 내용
-    - author: 작성자 이름
+    - author_id: 작성자 ID
+    - author_username: 작성자 이름
     - created_at: 생성 시간
     - likes: 좋아요 수
     """
@@ -128,7 +127,8 @@ class CommentResponse(BaseModel):
     id: str
     post_id: str
     content: str
-    author: str
+    author_id: str
+    author_username: str
     created_at: str
     likes: int = 0
 
@@ -304,15 +304,27 @@ async def post_helper(post) -> dict:
     }
 
 
-def comment_helper(comment) -> dict:
+async def comment_helper(comment) -> dict:
     """
     MongoDB 문서를 CommentResponse 형식으로 변환
     """
+    users_collection = database["users"]
+
+    # 작성자 정보 조회
+    author_id = comment.get("author_id")
+    author_username = "Unknown"
+
+    if author_id:
+        author = await users_collection.find_one({"_id": ObjectId(author_id)})
+        if author:
+            author_username = author.get("username", "Unknown")
+
     return {
         "id": str(comment["_id"]),
         "post_id": str(comment["post_id"]),
         "content": comment["content"],
-        "author": comment["author"],
+        "author_id": str(author_id) if author_id else "",
+        "author_username": author_username,
         "created_at": comment.get("created_at", "1970-01-01T00:00:00.000Z"),
         "likes": comment.get("likes", 0),
     }
@@ -725,12 +737,13 @@ async def like_post(post_id: str):
     status_code=status.HTTP_201_CREATED,
     tags=["Comments"],
 )
-async def create_comment(post_id: str, comment: CommentCreate):
+async def create_comment(
+    post_id: str, comment: CommentCreate, current_user: TokenData = Depends(get_current_user)
+):
     """
-    댓글 작성
+    댓글 작성 (인증 필요)
     - **post_id**: 게시글 ID
     - **content**: 댓글 내용
-    - **author**: 작성자 이름
     """
     # 게시글 존재 확인
     post_object_id = validate_object_id(post_id)
@@ -747,7 +760,7 @@ async def create_comment(post_id: str, comment: CommentCreate):
     new_comment = {
         "post_id": post_object_id,
         "content": comment.content,
-        "author": comment.author,
+        "author_id": current_user.user_id,  # Save author ID
         "created_at": datetime.utcnow().isoformat() + "Z",
         "likes": 0,
     }
@@ -755,7 +768,7 @@ async def create_comment(post_id: str, comment: CommentCreate):
     result = await comments_collection.insert_one(new_comment)
     created_comment = await comments_collection.find_one({"_id": result.inserted_id})
 
-    return comment_helper(created_comment)
+    return await comment_helper(created_comment)
 
 
 @app.get("/api/posts/{post_id}/comments", response_model=list[CommentResponse], tags=["Comments"])
@@ -779,7 +792,8 @@ async def get_comments(post_id: str):
     cursor = comments_collection.find({"post_id": post_object_id}).sort("created_at", 1)
     comments = await cursor.to_list(length=None)
 
-    return [comment_helper(comment) for comment in comments]
+    # Await all comment_helper calls
+    return [await comment_helper(comment) for comment in comments]
 
 
 @app.delete(
@@ -787,9 +801,9 @@ async def get_comments(post_id: str):
     response_model=dict,
     tags=["Comments"],
 )
-async def delete_comment(comment_id: str):
+async def delete_comment(comment_id: str, current_user: TokenData = Depends(get_current_user)):
     """
-    댓글 삭제
+    댓글 삭제 (인증 필요, 본인만 가능)
     - **comment_id**: 댓글 ID
     """
     # ObjectId 유효성 검증
@@ -797,14 +811,23 @@ async def delete_comment(comment_id: str):
 
     comments_collection = database["comments"]
 
-    # 댓글 삭제
-    result = await comments_collection.delete_one({"_id": object_id})
-
-    if result.deleted_count == 0:
+    # 댓글 존재 확인 및 본인 확인
+    existing_comment = await comments_collection.find_one({"_id": object_id})
+    if not existing_comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Comment with id {comment_id} not found",
         )
+
+    # 작성자 본인 확인
+    if existing_comment.get("author_id") != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own comments",
+        )
+
+    # 댓글 삭제
+    result = await comments_collection.delete_one({"_id": object_id})
 
     return {"message": "Comment deleted successfully"}
 
