@@ -20,14 +20,29 @@ async function handleResponse<T>(response: Response): Promise<T> {
  */
 export const postService = {
   /**
-   * 게시글 목록 조회 (페이지네이션)
+   * 게시글 목록 조회 (페이지네이션, 검색, 정렬)
    * @param page - 페이지 번호 (1부터 시작)
    * @param limit - 페이지당 게시글 수
+   * @param searchQuery - 검색어 (선택)
+   * @param sortBy - 정렬 기준 (date, likes, comments)
    */
-  async getAllPosts(page = 1, limit = 10): Promise<PostListResponse> {
-    const response = await fetch(
-      `${API_BASE_URL}/posts?page=${page}&limit=${limit}`
-    );
+  async getAllPosts(
+    page = 1,
+    limit = 10,
+    searchQuery = "",
+    sortBy = "date"
+  ): Promise<PostListResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sort: sortBy,
+    });
+
+    if (searchQuery) {
+      params.append("q", searchQuery);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/posts?${params.toString()}`);
     return handleResponse<PostListResponse>(response);
   },
 

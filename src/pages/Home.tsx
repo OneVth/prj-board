@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { postService } from "../services/postService";
-import { LoadingSpinner, PostCard } from "../components";
+import { LoadingSpinner, PostCard, SearchBar } from "../components";
 import type { Post } from "../types/post";
 
 // ============================================
@@ -14,13 +14,17 @@ type HomeState = {
   error: string | null;
   page: number;
   hasMore: boolean;
+  searchQuery: string;
+  sortBy: string;
 };
 
 type HomeAction =
   | { type: "FETCH_START" }
   | { type: "FETCH_SUCCESS"; payload: { posts: Post[]; totalPages: number } }
   | { type: "FETCH_ERROR"; payload: string }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "SET_SEARCH"; payload: string }
+  | { type: "SET_SORT"; payload: string };
 
 // ============================================
 // Reducer 함수
@@ -43,7 +47,23 @@ function homeReducer(state: HomeState, action: HomeAction): HomeState {
     case "FETCH_ERROR":
       return { ...state, loading: false, error: action.payload };
     case "RESET":
-      return initialState;
+      return {
+        ...initialState,
+        searchQuery: state.searchQuery,
+        sortBy: state.sortBy,
+      };
+    case "SET_SEARCH":
+      return {
+        ...initialState,
+        searchQuery: action.payload,
+        sortBy: state.sortBy,
+      };
+    case "SET_SORT":
+      return {
+        ...initialState,
+        searchQuery: state.searchQuery,
+        sortBy: action.payload,
+      };
     default:
       return state;
   }
@@ -59,6 +79,8 @@ const initialState: HomeState = {
   error: null,
   page: 1,
   hasMore: true,
+  searchQuery: "",
+  sortBy: "date",
 };
 
 // ============================================
@@ -66,7 +88,12 @@ const initialState: HomeState = {
 // ============================================
 
 function Home() {
-  const [state, dispatch] = useReducer(homeReducer, initialState);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [state, dispatch] = useReducer(homeReducer, {
+    ...initialState,
+    searchQuery: searchParams.get("q") || "",
+    sortBy: searchParams.get("sort") || "date",
+  });
   const observerTarget = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state); // Track latest state for avoiding stale closure
   const isInitialMount = useRef(true);
@@ -91,9 +118,17 @@ function Home() {
     dispatch({ type: "FETCH_START" });
 
     try {
-      // Use stateRef to get current page value (avoids stale closure)
+      // Use stateRef to get current values (avoids stale closure)
       const currentPage = stateRef.current.page;
-      const response = await postService.getAllPosts(currentPage, PAGE_SIZE);
+      const currentSearch = stateRef.current.searchQuery;
+      const currentSort = stateRef.current.sortBy;
+
+      const response = await postService.getAllPosts(
+        currentPage,
+        PAGE_SIZE,
+        currentSearch,
+        currentSort
+      );
 
       dispatch({
         type: "FETCH_SUCCESS",
@@ -114,6 +149,14 @@ function Home() {
     }
   }, []); // No dependencies needed with ref pattern
 
+  // 검색어/정렬 변경 시 리셋 및 재로드
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      // 검색/정렬이 변경되면 처음부터 다시 로드
+      loadPosts();
+    }
+  }, [state.searchQuery, state.sortBy, loadPosts]);
+
   // 초기 로드 - Strict Mode 중복 실행 방지 (빈 dependency array로 진정한 mount-only 실행)
   useEffect(() => {
     if (isInitialMount.current && state.posts.length === 0 && !state.loading) {
@@ -121,6 +164,36 @@ function Home() {
       loadPosts();
     }
   }, []); // Empty dependency array for true mount-only execution
+
+  // 검색 핸들러
+  const handleSearch = useCallback(
+    (query: string) => {
+      dispatch({ type: "SET_SEARCH", payload: query });
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        if (query) {
+          newParams.set("q", query);
+        } else {
+          newParams.delete("q");
+        }
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
+
+  // 정렬 변경 핸들러
+  const handleSortChange = useCallback(
+    (sortBy: string) => {
+      dispatch({ type: "SET_SORT", payload: sortBy });
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set("sort", sortBy);
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
 
   // Intersection Observer로 무한 스크롤 구현
   useEffect(() => {
@@ -166,6 +239,14 @@ function Home() {
           </Link>
         </div>
       </header>
+
+      {/* Search and Filter */}
+      <SearchBar
+        onSearch={handleSearch}
+        onSortChange={handleSortChange}
+        initialQuery={state.searchQuery}
+        initialSort={state.sortBy}
+      />
 
       {/* Main Content */}
       <main>

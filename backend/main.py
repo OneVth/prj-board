@@ -286,11 +286,19 @@ async def create_indexes():
     """
     posts 컬렉션에 인덱스 생성
     - created_at: 내림차순 정렬을 위한 인덱스
+    - text index: 제목 및 본문 검색을 위한 텍스트 인덱스
     """
     posts_collection = database["posts"]
 
     # created_at 필드에 내림차순 인덱스 생성
     await posts_collection.create_index([("created_at", -1)])
+
+    # likes 필드에 내림차순 인덱스 생성
+    await posts_collection.create_index([("likes", -1)])
+
+    # title과 content에 text index 생성 (검색용)
+    await posts_collection.create_index([("title", "text"), ("content", "text")])
+
     print("✅ Indexes created successfully!")
 
 
@@ -351,11 +359,18 @@ async def health_check():
 
 
 @app.get("/api/posts", response_model=PostListResponse, tags=["Posts"])
-async def get_posts(page: int = 1, limit: int = 10):
+async def get_posts(
+    page: int = 1,
+    limit: int = 10,
+    q: str = None,
+    sort: str = "date",
+):
     """
-    게시글 목록 조회 (페이지네이션)
+    게시글 목록 조회 (페이지네이션, 검색, 정렬)
     - **page**: 페이지 번호 (기본값: 1)
     - **limit**: 페이지당 게시글 수 (기본값: 10, 최대: 100)
+    - **q**: 검색어 (제목 및 본문 검색)
+    - **sort**: 정렬 기준 (date=최신순, likes=좋아요순, comments=댓글순)
     """
     # limit 최대값 제한
     limit = min(limit, 100)
@@ -365,12 +380,49 @@ async def get_posts(page: int = 1, limit: int = 10):
 
     posts_collection = database["posts"]
 
-    # 전체 게시글 수
-    total_posts = await posts_collection.count_documents({})
+    # 검색 쿼리 구성
+    query = {}
+    if q:
+        query["$text"] = {"$search": q}
 
-    # 페이지네이션된 게시글 조회 (created_at 내림차순)
-    cursor = posts_collection.find().sort("created_at", -1).skip(skip).limit(limit)
-    posts = await cursor.to_list(length=limit)
+    # 전체 게시글 수
+    total_posts = await posts_collection.count_documents(query)
+
+    # 정렬 기준 설정
+    sort_field = "created_at"
+    sort_order = -1  # 내림차순
+
+    if sort == "likes":
+        sort_field = "likes"
+    elif sort == "comments":
+        # 댓글순은 aggregation이 필요하므로 별도 처리
+        sort_field = None
+
+    # 페이지네이션된 게시글 조회
+    if sort_field:
+        cursor = (
+            posts_collection.find(query).sort(sort_field, sort_order).skip(skip).limit(limit)
+        )
+        posts = await cursor.to_list(length=limit)
+    else:
+        # 댓글순 정렬 (aggregation 사용)
+        pipeline = [
+            {"$match": query},
+            {
+                "$lookup": {
+                    "from": "comments",
+                    "localField": "_id",
+                    "foreignField": "post_id",
+                    "as": "comments",
+                }
+            },
+            {"$addFields": {"comment_count": {"$size": "$comments"}}},
+            {"$sort": {"comment_count": -1}},
+            {"$skip": skip},
+            {"$limit": limit},
+            {"$project": {"comments": 0}},  # comments 필드 제거
+        ]
+        posts = await posts_collection.aggregate(pipeline).to_list(length=limit)
 
     # 전체 페이지 수 계산
     total_pages = (total_posts + limit - 1) // limit
