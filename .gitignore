@@ -26,6 +26,11 @@ dist-ssr
 # Claude
 .claude
 CLAUDE.md
+claudedocs/
+.serena/
 
 # Python
 __pycache__/
+
+# Backend logs
+backend.log
