@@ -18,20 +18,22 @@ interface CommentListProps {
 function CommentList({ comments, onDelete, onLike }: CommentListProps) {
   if (comments.length === 0) {
     return (
-      <div className="py-8 text-center text-gray-500">
-        <p>첫 댓글을 작성해보세요!</p>
+      <div className="py-8 text-center">
+        <p className="text-gray-400">첫 댓글을 작성해보세요!</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h3 className="font-bold text-lg mb-4">
+      <h3 className="font-bold text-lg mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
         댓글 {comments.length}개
       </h3>
-      {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} onDelete={onDelete} onLike={onLike} />
-      ))}
+      <div className="space-y-4">
+        {comments.map((comment) => (
+          <CommentItem key={comment.id} comment={comment} onDelete={onDelete} onLike={onLike} />
+        ))}
+      </div>
     </div>
   );
 }
