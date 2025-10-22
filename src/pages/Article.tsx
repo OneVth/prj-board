@@ -1,10 +1,13 @@
 import { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Trash2, Edit3 } from "lucide-react";
 import { postService } from "../services/postService";
 import { commentService } from "../services/commentService";
 import { useAuth } from "../contexts/AuthContext";
 import { formatTime } from "../utils/dateFormat";
-import { LoadingSpinner, CommentForm, CommentList } from "../components";
+import { LoadingSpinner, CommentForm, CommentList, Header } from "../components";
+import { Button } from "../components/ui/button";
 import type { Post } from "../types/post";
 import type { Comment, CommentFormData } from "../types/comment";
 
@@ -327,42 +330,39 @@ function Article() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <button
-            onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-white transition-colors"
-            disabled={state.deleting}
-          >
-            ← Back
-          </button>
-          {isAuthor && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleDelete}
+      <Header />
+
+      {/* Action Bar - Only for authors */}
+      {isAuthor && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border-b border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm"
+        >
+          <div className="max-w-2xl mx-auto px-4 py-3 flex justify-end items-center gap-3">
+            <Button
+              onClick={handleDelete}
+              disabled={state.deleting}
+              variant="destructive"
+              size="sm"
+              className="rounded-full"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{state.deleting ? "Deleting..." : "Delete"}</span>
+            </Button>
+            <Link to={`/edit/${post.id}`}>
+              <Button
                 disabled={state.deleting}
-                className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-                  state.deleting
-                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    : "bg-red-600 text-white hover:bg-red-700"
-                }`}
+                size="sm"
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full"
               >
-                {state.deleting ? "Deleting..." : "Delete"}
-              </button>
-              <Link
-                to={`/edit/${post.id}`}
-                className={`px-4 py-2 bg-white font-bold text-black rounded-full transition-colors ${
-                  state.deleting
-                    ? "pointer-events-none opacity-50"
-                    : "hover:bg-gray-200"
-                }`}
-              >
-                Edit
-              </Link>
-            </div>
-          )}
-        </div>
-      </header>
+                <Edit3 className="w-4 h-4" />
+                <span>Edit</span>
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 py-6">

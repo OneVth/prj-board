@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { X, Send } from "lucide-react";
 import { postService } from "../services/postService";
 import { useAuth } from "../contexts/AuthContext";
-import { PostForm } from "../components";
+import { PostForm, Header } from "../components";
+import { Button } from "../components/ui/button";
 import type { PostFormData } from "../types/post";
 
 // ============================================
@@ -46,32 +49,42 @@ function New() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-black border-b border-gray-800">
+      <Header />
+
+      {/* Action Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="border-b border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm"
+      >
         <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-          <button
+          <Button
             onClick={handleCancel}
-            className="text-gray-400 hover:text-white transition-colors"
             disabled={submitting}
+            variant="ghost"
+            size="sm"
+            className="rounded-full"
           >
-            Cancel
-          </button>
-          <h1 className="text-xl font-bold">New Post</h1>
-          <button
+            <X className="w-4 h-4" />
+            <span>Cancel</span>
+          </Button>
+          <h1 className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            New Post
+          </h1>
+          <Button
             onClick={() => {
               const form = document.querySelector("form");
               form?.requestSubmit();
             }}
             disabled={submitting}
-            className={`px-4 py-2 rounded-full font-semibold transition-colors ${
-              submitting
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-white text-black hover:bg-gray-200"
-            }`}
+            size="sm"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full"
           >
-            {submitting ? "Posting..." : "Post"}
-          </button>
+            <Send className="w-4 h-4" />
+            <span>{submitting ? "Posting..." : "Post"}</span>
+          </Button>
         </div>
-      </header>
+      </motion.div>
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 py-6">

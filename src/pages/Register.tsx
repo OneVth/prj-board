@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { Header } from "../components";
 
 function Register() {
   const navigate = useNavigate();
@@ -70,18 +71,7 @@ function Register() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 bg-black border-b border-gray-800 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            ← Back
-          </button>
-          <h1 className="text-lg font-semibold">Sign Up</h1>
-          <div className="w-14"></div>
-        </div>
-      </header>
+      <Header />
 
       {/* Register Form */}
       <div className="max-w-md mx-auto px-4 py-8">
