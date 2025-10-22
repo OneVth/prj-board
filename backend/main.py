@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from core.database import connect_to_mongo, close_mongo_connection
-from routers import posts_router, comments_router, auth_router
+from routers import posts_router, comments_router, auth_router, users_router
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.add_middleware(
 app.include_router(posts_router)
 app.include_router(comments_router)
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 # 기본 엔드포인트
