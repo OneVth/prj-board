@@ -244,23 +244,47 @@ async def delete_post(post_id: str, current_user: TokenData = Depends(get_curren
 
 
 @router.patch("/{post_id}/like", response_model=PostResponse)
-async def like_post(post_id: str):
+async def like_post(post_id: str, current_user: TokenData = Depends(get_current_user)):
     """
-    게시글 좋아요 증가
+    게시글 좋아요 토글 (인증 필요)
     - **post_id**: 게시글 ID
+    - 이미 좋아요를 누른 경우 좋아요 취소
+    - 처음 누르는 경우 좋아요 추가
     """
     database = get_database()
     posts_collection = database["posts"]
 
     object_id = validate_object_id(post_id)
+    user_id = current_user.user_id
 
-    # likes 필드 1 증가
-    result = await posts_collection.update_one(
-        {"_id": object_id}, {"$inc": {"likes": 1}}
-    )
-
-    if result.matched_count == 0:
+    # 게시글 존재 확인
+    post = await posts_collection.find_one({"_id": object_id})
+    if not post:
         raise NotFoundException("Post", post_id)
+
+    # liked_by 필드가 없으면 빈 배열로 초기화
+    if "liked_by" not in post:
+        post["liked_by"] = []
+
+    # 이미 좋아요를 눌렀는지 확인
+    if user_id in post["liked_by"]:
+        # 좋아요 취소: liked_by 배열에서 user_id 제거, likes 감소
+        result = await posts_collection.update_one(
+            {"_id": object_id},
+            {
+                "$pull": {"liked_by": user_id},
+                "$inc": {"likes": -1}
+            }
+        )
+    else:
+        # 좋아요 추가: liked_by 배열에 user_id 추가, likes 증가
+        result = await posts_collection.update_one(
+            {"_id": object_id},
+            {
+                "$addToSet": {"liked_by": user_id},
+                "$inc": {"likes": 1}
+            }
+        )
 
     updated_post = await posts_collection.find_one({"_id": object_id})
     return await post_helper(updated_post)

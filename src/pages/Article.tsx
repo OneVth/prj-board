@@ -206,16 +206,17 @@ function Article() {
 
   // 좋아요 핸들러
   const handleLike = async () => {
-    if (!id || state.liking) return;
+    if (!id || state.liking || !accessToken) return;
 
     dispatch({ type: "LIKE_START" });
 
     try {
-      const updatedPost = await postService.likePost(id);
+      const updatedPost = await postService.likePost(id, accessToken);
       dispatch({ type: "LIKE_SUCCESS", payload: updatedPost });
     } catch (error) {
       dispatch({ type: "LIKE_ERROR" });
       console.error("Failed to like post:", error);
+      alert("좋아요에 실패했습니다. 로그인이 필요합니다.");
     }
   };
 
@@ -275,8 +276,13 @@ function Article() {
 
   // 댓글 좋아요 핸들러
   const handleCommentLike = async (commentId: string) => {
+    if (!accessToken) {
+      alert("좋아요를 누르려면 로그인이 필요합니다.");
+      return;
+    }
+
     try {
-      const updatedComment = await commentService.likeComment(commentId);
+      const updatedComment = await commentService.likeComment(commentId, accessToken);
       dispatch({ type: "COMMENT_LIKE_SUCCESS", payload: updatedComment });
     } catch (error) {
       console.error("Failed to like comment:", error);

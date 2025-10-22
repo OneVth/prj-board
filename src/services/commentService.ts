@@ -37,12 +37,16 @@ export const commentService = {
   },
 
   /**
-   * 댓글 좋아요 증가
+   * 댓글 좋아요 토글 (인증 필요)
    * @param commentId - 댓글 ID
+   * @param accessToken - Access Token
    */
-  async likeComment(commentId: string): Promise<Comment> {
+  async likeComment(commentId: string, accessToken: string): Promise<Comment> {
     const response = await fetch(`${API_BASE_URL}/comments/${commentId}/like`, {
       method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
     return handleResponse<Comment>(response);
   },

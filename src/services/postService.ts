@@ -96,12 +96,16 @@ export const postService = {
   },
 
   /**
-   * 게시글 좋아요
+   * 게시글 좋아요 토글 (인증 필요)
    * @param id - 게시글 ID
+   * @param accessToken - Access Token
    */
-  async likePost(id: string): Promise<Post> {
+  async likePost(id: string, accessToken: string): Promise<Post> {
     const response = await fetch(`${API_BASE_URL}/posts/${id}/like`, {
       method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
     return handleResponse<Post>(response);
   },

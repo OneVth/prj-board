@@ -83,25 +83,49 @@ async def get_comments(post_id: str):
 
 
 @router.patch("/api/comments/{comment_id}/like", response_model=CommentResponse)
-async def like_comment(comment_id: str):
+async def like_comment(comment_id: str, current_user: TokenData = Depends(get_current_user)):
     """
-    댓글 좋아요 증가
+    댓글 좋아요 토글 (인증 필요)
     - **comment_id**: 댓글 ID
+    - 이미 좋아요를 누른 경우 좋아요 취소
+    - 처음 누르는 경우 좋아요 추가
     """
     database = get_database()
     comments_collection = database["comments"]
 
     object_id = validate_object_id(comment_id)
+    user_id = current_user.user_id
 
-    # likes 필드 1 증가
-    result = await comments_collection.update_one(
-        {"_id": object_id}, {"$inc": {"likes": 1}}
-    )
-
-    if result.matched_count == 0:
+    # 댓글 존재 확인
+    comment = await comments_collection.find_one({"_id": object_id})
+    if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Comment with id {comment_id} not found",
+        )
+
+    # liked_by 필드가 없으면 빈 배열로 초기화
+    if "liked_by" not in comment:
+        comment["liked_by"] = []
+
+    # 이미 좋아요를 눌렀는지 확인
+    if user_id in comment["liked_by"]:
+        # 좋아요 취소: liked_by 배열에서 user_id 제거, likes 감소
+        result = await comments_collection.update_one(
+            {"_id": object_id},
+            {
+                "$pull": {"liked_by": user_id},
+                "$inc": {"likes": -1}
+            }
+        )
+    else:
+        # 좋아요 추가: liked_by 배열에 user_id 추가, likes 증가
+        result = await comments_collection.update_one(
+            {"_id": object_id},
+            {
+                "$addToSet": {"liked_by": user_id},
+                "$inc": {"likes": 1}
+            }
         )
 
     updated_comment = await comments_collection.find_one({"_id": object_id})
