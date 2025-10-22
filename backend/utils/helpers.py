@@ -80,15 +80,30 @@ async def comment_helper(comment: dict) -> dict:
     }
 
 
-def user_helper(user: dict) -> dict:
+def user_helper(user: dict, current_user_id: str = None) -> dict:
     """
     MongoDB 문서를 UserResponse 형식으로 변환
+
+    Args:
+        user: 사용자 MongoDB 문서
+        current_user_id: 현재 로그인한 사용자 ID (is_following 계산용)
     """
+    followers = user.get("followers", [])
+    following = user.get("following", [])
+
+    # 현재 사용자가 이 사용자를 팔로우하는지 확인
+    is_following = False
+    if current_user_id:
+        is_following = current_user_id in followers
+
     return {
         "id": str(user["_id"]),
         "username": user["username"],
         "email": user["email"],
         "created_at": user.get("created_at", "1970-01-01T00:00:00.000Z"),
+        "follower_count": len(followers),
+        "following_count": len(following),
+        "is_following": is_following,
     }
 
 

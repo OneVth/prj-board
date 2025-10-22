@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { userService } from "../services/userService";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,11 +11,12 @@ import type { User } from "../types/user";
 
 function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { accessToken } = useAuth();
+  const { accessToken, isAuthenticated } = useAuth();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [followingLoading, setFollowingLoading] = useState<Set<string>>(new Set());
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 검색 실행
@@ -70,6 +71,36 @@ function Search() {
       }
     };
   }, [query]);
+
+  // Follow/Unfollow 핸들러
+  const handleFollowToggle = useCallback(async (userId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation to profile
+    if (!accessToken) return;
+
+    // Mark user as loading
+    setFollowingLoading(prev => new Set(prev).add(userId));
+
+    try {
+      const targetUser = users.find(u => u.id === userId);
+      if (!targetUser) return;
+
+      const updatedUser = targetUser.isFollowing
+        ? await userService.unfollowUser(userId, accessToken)
+        : await userService.followUser(userId, accessToken);
+
+      // Update user in list
+      setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    } catch (error) {
+      console.error("Failed to toggle follow:", error);
+    } finally {
+      // Remove user from loading set
+      setFollowingLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  }, [accessToken, users]);
 
   // ============================================
   // 렌더링
@@ -150,12 +181,29 @@ function Search() {
                     <p className="text-sm text-gray-500 truncate">
                       {user.email}
                     </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {user.followerCount} Followers • {user.followingCount} Following
+                    </p>
                   </div>
 
-                  {/* Arrow */}
-                  <div className="text-gray-500">
-                    →
-                  </div>
+                  {/* Follow Button */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={(e) => handleFollowToggle(user.id, e)}
+                      disabled={followingLoading.has(user.id)}
+                      className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
+                        user.isFollowing
+                          ? "bg-gray-800 text-white hover:bg-gray-700 border border-gray-700"
+                          : "bg-white text-black hover:bg-gray-200"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {followingLoading.has(user.id)
+                        ? "..."
+                        : user.isFollowing
+                          ? "Following"
+                          : "Follow"}
+                    </button>
+                  )}
                 </div>
               </Link>
             ))}

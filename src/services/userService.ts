@@ -58,4 +58,34 @@ export const userService = {
     });
     return handleResponse<User[]>(response);
   },
+
+  /**
+   * 사용자 팔로우
+   * @param userId - 팔로우할 사용자 ID
+   * @param accessToken - Access Token (필수)
+   */
+  async followUser(userId: string, accessToken: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/follow`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return handleResponse<User>(response);
+  },
+
+  /**
+   * 사용자 언팔로우
+   * @param userId - 언팔로우할 사용자 ID
+   * @param accessToken - Access Token (필수)
+   */
+  async unfollowUser(userId: string, accessToken: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/follow`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return handleResponse<User>(response);
+  },
 };

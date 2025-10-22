@@ -43,18 +43,23 @@ async def search_users(
     }
 
     # 현재 사용자는 검색 결과에서 제외
+    current_user_id = None
     if current_user:
-        search_query["_id"] = {"$ne": validate_object_id(current_user.user_id)}
+        current_user_id = current_user.user_id
+        search_query["_id"] = {"$ne": validate_object_id(current_user_id)}
 
     # 사용자 검색
     cursor = users_collection.find(search_query).limit(limit)
     users = await cursor.to_list(length=limit)
 
-    return [user_helper(user) for user in users]
+    return [user_helper(user, current_user_id) for user in users]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-async def get_user_profile(user_id: str):
+async def get_user_profile(
+    user_id: str,
+    current_user: Optional[TokenData] = Depends(get_current_user)
+):
     """
     사용자 프로필 조회
     - **user_id**: 사용자 ID (MongoDB ObjectId)
@@ -68,7 +73,8 @@ async def get_user_profile(user_id: str):
     if not user:
         raise NotFoundException("User", user_id)
 
-    return user_helper(user)
+    current_user_id = current_user.user_id if current_user else None
+    return user_helper(user, current_user_id)
 
 
 @router.get("/{user_id}/posts", response_model=list[PostResponse])
@@ -123,3 +129,89 @@ async def get_user_comments(user_id: str, limit: int = 20):
     comments = await cursor.to_list(length=limit)
 
     return [await comment_helper(comment) for comment in comments]
+
+
+@router.post("/{user_id}/follow", response_model=UserResponse)
+async def follow_user(
+    user_id: str,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    사용자 팔로우
+    - **user_id**: 팔로우할 사용자 ID
+    - 인증 필요
+    - 자기 자신은 팔로우할 수 없음
+    """
+    database = get_database()
+    users_collection = database["users"]
+
+    # 자기 자신을 팔로우할 수 없음
+    if user_id == current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot follow yourself"
+        )
+
+    # 대상 사용자 존재 확인
+    target_object_id = validate_object_id(user_id)
+    target_user = await users_collection.find_one({"_id": target_object_id})
+    if not target_user:
+        raise NotFoundException("User", user_id)
+
+    # 현재 사용자 ID를 ObjectId로 변환
+    current_user_object_id = validate_object_id(current_user.user_id)
+
+    # 대상 사용자의 followers에 현재 사용자 추가
+    await users_collection.update_one(
+        {"_id": target_object_id},
+        {"$addToSet": {"followers": current_user.user_id}}
+    )
+
+    # 현재 사용자의 following에 대상 사용자 추가
+    await users_collection.update_one(
+        {"_id": current_user_object_id},
+        {"$addToSet": {"following": user_id}}
+    )
+
+    # 업데이트된 대상 사용자 정보 반환
+    updated_user = await users_collection.find_one({"_id": target_object_id})
+    return user_helper(updated_user, current_user.user_id)
+
+
+@router.delete("/{user_id}/follow", response_model=UserResponse)
+async def unfollow_user(
+    user_id: str,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    사용자 언팔로우
+    - **user_id**: 언팔로우할 사용자 ID
+    - 인증 필요
+    """
+    database = get_database()
+    users_collection = database["users"]
+
+    # 대상 사용자 존재 확인
+    target_object_id = validate_object_id(user_id)
+    target_user = await users_collection.find_one({"_id": target_object_id})
+    if not target_user:
+        raise NotFoundException("User", user_id)
+
+    # 현재 사용자 ID를 ObjectId로 변환
+    current_user_object_id = validate_object_id(current_user.user_id)
+
+    # 대상 사용자의 followers에서 현재 사용자 제거
+    await users_collection.update_one(
+        {"_id": target_object_id},
+        {"$pull": {"followers": current_user.user_id}}
+    )
+
+    # 현재 사용자의 following에서 대상 사용자 제거
+    await users_collection.update_one(
+        {"_id": current_user_object_id},
+        {"$pull": {"following": user_id}}
+    )
+
+    # 업데이트된 대상 사용자 정보 반환
+    updated_user = await users_collection.find_one({"_id": target_object_id})
+    return user_helper(updated_user, current_user.user_id)

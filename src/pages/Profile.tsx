@@ -3,17 +3,20 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { userService } from "../services/userService";
 import { LoadingSpinner, PostCard } from "../components";
 import { formatDate } from "../utils/dateFormat";
+import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../types/user";
 import type { Post } from "../types/post";
 
 function Profile() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { user: currentUser, accessToken } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "comments">("posts");
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -41,6 +44,28 @@ function Profile() {
 
     loadUserData();
   }, [userId]);
+
+  const handleFollowToggle = async () => {
+    if (!userId || !accessToken || !user) return;
+
+    setFollowLoading(true);
+    try {
+      if (user.isFollowing) {
+        const updatedUser = await userService.unfollowUser(userId, accessToken);
+        setUser(updatedUser);
+      } else {
+        const updatedUser = await userService.followUser(userId, accessToken);
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error("Failed to toggle follow:", error);
+      alert(error instanceof Error ? error.message : "Failed to update follow status");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const isOwnProfile = currentUser && currentUser.id === userId;
 
   if (loading) {
     return <LoadingSpinner />;
@@ -81,8 +106,26 @@ function Profile() {
           </div>
 
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1">{user.username}</h2>
-            <p className="text-gray-500 text-sm mb-2">{user.email}</p>
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">{user.username}</h2>
+                <p className="text-gray-500 text-sm mb-2">{user.email}</p>
+              </div>
+              {/* Follow Button */}
+              {!isOwnProfile && currentUser && (
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  className={`px-6 py-2 rounded-full font-semibold transition-colors ${
+                    user.isFollowing
+                      ? "bg-gray-800 text-white hover:bg-gray-700 border border-gray-700"
+                      : "bg-white text-black hover:bg-gray-200"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {followLoading ? "..." : user.isFollowing ? "Following" : "Follow"}
+                </button>
+              )}
+            </div>
             <p className="text-gray-500 text-sm">
               Joined {formatDate(user.createdAt)}
             </p>
@@ -94,6 +137,14 @@ function Profile() {
           <div>
             <span className="font-bold">{posts.length}</span>{" "}
             <span className="text-gray-500">Posts</span>
+          </div>
+          <div>
+            <span className="font-bold">{user.followerCount}</span>{" "}
+            <span className="text-gray-500">Followers</span>
+          </div>
+          <div>
+            <span className="font-bold">{user.followingCount}</span>{" "}
+            <span className="text-gray-500">Following</span>
           </div>
         </div>
       </div>
