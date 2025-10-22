@@ -117,6 +117,7 @@ function Home() {
   const stateRef = useRef(state); // Track latest state for avoiding stale closure
   const isInitialMount = useRef(true);
   const isFetchingRef = useRef(false); // Synchronous fetching flag to prevent duplicates
+  const prevFiltersRef = useRef({ searchQuery: state.searchQuery, sortBy: state.sortBy, feedType: state.feedType }); // Track previous filter values
   const PAGE_SIZE = 10;
 
   // Keep stateRef in sync with latest state
@@ -195,9 +196,31 @@ function Home() {
     }
   }, [accessToken]); // accessToken dependency added
 
+  // 초기 로드 - 컴포넌트 마운트 시 한 번만 실행
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      loadPosts();
+    }
+  }, []); // Empty dependency array for true mount-only execution
+
   // 검색어/정렬/피드타입 변경 시 리셋 및 재로드
   useEffect(() => {
-    if (!isInitialMount.current) {
+    // 이전 값과 비교하여 실제로 변경되었을 때만 실행
+    const prev = prevFiltersRef.current;
+    const hasChanged =
+      prev.searchQuery !== state.searchQuery ||
+      prev.sortBy !== state.sortBy ||
+      prev.feedType !== state.feedType;
+
+    if (!isInitialMount.current && hasChanged) {
+      // 이전 값 업데이트
+      prevFiltersRef.current = {
+        searchQuery: state.searchQuery,
+        sortBy: state.sortBy,
+        feedType: state.feedType,
+      };
+
       // 상태 리셋
       dispatch({ type: "RESET" });
       // 플래그 리셋
@@ -207,14 +230,6 @@ function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.searchQuery, state.sortBy, state.feedType]);
-
-  // 초기 로드 - Strict Mode 중복 실행 방지 (빈 dependency array로 진정한 mount-only 실행)
-  useEffect(() => {
-    if (isInitialMount.current && state.posts.length === 0 && !state.loading) {
-      isInitialMount.current = false;
-      loadPosts();
-    }
-  }, []); // Empty dependency array for true mount-only execution
 
   // 검색 핸들러
   const handleSearch = useCallback(
