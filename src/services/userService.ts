@@ -10,9 +10,17 @@ export const userService = {
   /**
    * 사용자 프로필 조회
    * @param userId - 사용자 ID
+   * @param accessToken - Access Token (선택, 인증된 경우 is_following 정보 포함)
    */
-  async getUserProfile(userId: string): Promise<User> {
-    const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+  async getUserProfile(userId: string, accessToken?: string): Promise<User> {
+    const headers: HeadersInit = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+      headers,
+    });
     return handleResponse<User>(response);
   },
 

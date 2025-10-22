@@ -29,7 +29,7 @@ function Profile() {
       setLoading(true);
       try {
         const [userProfile, userPosts] = await Promise.all([
-          userService.getUserProfile(userId),
+          userService.getUserProfile(userId, accessToken),
           userService.getUserPosts(userId, 20),
         ]);
 
