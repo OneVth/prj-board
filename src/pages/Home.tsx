@@ -1,8 +1,10 @@
-import { useEffect, useReducer, useRef, useCallback } from "react";
+import { useEffect, useReducer, useRef, useCallback, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Search } from "lucide-react";
 import { postService } from "../services/postService";
-import { PostCard, SearchBar, Header } from "../components";
+import { PostCard, Header } from "../components";
+import { Input } from "../components/ui/input";
 import { useAuth } from "../contexts/AuthContext";
 import type { Post } from "../types/post";
 
@@ -110,6 +112,7 @@ function Home() {
     searchQuery: searchParams.get("q") || "",
     sortBy: searchParams.get("sort") || "date",
   });
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state); // Track latest state for avoiding stale closure
   const isInitialMount = useRef(true);
@@ -277,9 +280,60 @@ function Home() {
       {/* Modern Header */}
       <Header />
 
+      {/* Search Box and Sort Filter */}
+      <div className="border-b border-white/10 bg-black/50 backdrop-blur-sm sticky top-16 z-40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="relative max-w-2xl mx-auto flex items-center gap-3">
+            {/* Search Box */}
+            <form onSubmit={(e) => { e.preventDefault(); handleSearch(state.searchQuery); }} className="flex-1">
+              <motion.div
+                animate={{
+                  scale: isSearchFocused ? 1.02 : 1,
+                }}
+                transition={{ duration: 0.2 }}
+                className="relative"
+              >
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm"></div>
+                <div className="relative flex items-center">
+                  <Search className="absolute left-4 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search posts..."
+                    value={state.searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
+                    className="h-11 w-full rounded-full border-white/10 bg-black/50 pl-11 pr-4 text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:bg-black/80 focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+              </motion.div>
+            </form>
+
+            {/* Sort Filter */}
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm"></div>
+              <select
+                value={state.sortBy}
+                onChange={(e) => handleSortChange(e.target.value)}
+                className="relative h-11 px-4 pr-10 rounded-full border-white/10 bg-black/50 text-white text-sm font-medium cursor-pointer focus:border-purple-500/50 focus:bg-black/80 focus:ring-2 focus:ring-purple-500/20 focus:outline-none appearance-none"
+              >
+                <option value="date" className="bg-gray-900">Recent</option>
+                <option value="likes" className="bg-gray-900">Likes</option>
+                <option value="comments" className="bg-gray-900">Comments</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Feed Type Tabs - Only show for authenticated users */}
       {isAuthenticated && (
-        <div className="border-b border-white/10 bg-black/50 backdrop-blur-sm sticky top-[73px] z-40">
+        <div className="border-b border-white/10 bg-black/50 backdrop-blur-sm sticky top-[88px] z-40">
           <div className="max-w-2xl mx-auto flex relative">
             <button
               onClick={() => dispatch({ type: "SET_FEED_TYPE", payload: "forYou" })}
@@ -319,92 +373,84 @@ function Home() {
         </div>
       )}
 
-      {/* Search and Filter - Only show for For You feed */}
-      {state.feedType === "forYou" && (
-        <SearchBar
-          onSearch={handleSearch}
-          onSortChange={handleSortChange}
-          initialQuery={state.searchQuery}
-          initialSort={state.sortBy}
-        />
-      )}
-
       {/* Main Content */}
-      <main>
-        {/* Error State with Retry */}
-        {state.error && (
-          <div
-            className="p-4 m-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400"
-            role="alert"
-          >
-            <div className="flex items-center justify-between">
-              <span>⚠️ {state.error}</span>
-              <button
-                onClick={() => {
-                  dispatch({ type: "RESET" });
-                  loadPosts();
-                }}
-                className="ml-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors text-sm font-semibold"
-              >
-                Retry
-              </button>
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl">
+          {/* Error State with Retry */}
+          {state.error && (
+            <div
+              className="p-4 mt-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400"
+              role="alert"
+            >
+              <div className="flex items-center justify-between">
+                <span>⚠️ {state.error}</span>
+                <button
+                  onClick={() => {
+                    dispatch({ type: "RESET" });
+                    loadPosts();
+                  }}
+                  className="ml-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors text-sm font-semibold"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Empty State */}
-        {!state.loading && state.posts.length === 0 && !state.error && (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-gray-500">
-            {state.feedType === "following" ? (
-              <>
-                <p className="text-lg mb-4">No posts from followed users</p>
-                <Link
-                  to="/search"
-                  className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
-                >
-                  Find users to follow
-                </Link>
-              </>
-            ) : (
-              <>
-                <p className="text-lg mb-4">No posts yet</p>
-                <Link
-                  to="/new"
-                  className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
-                >
-                  Create your first post
-                </Link>
-              </>
-            )}
-          </div>
-        )}
+          {/* Empty State */}
+          {!state.loading && state.posts.length === 0 && !state.error && (
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-gray-500">
+              {state.feedType === "following" ? (
+                <>
+                  <p className="text-lg mb-4">No posts from followed users</p>
+                  <Link
+                    to="/search"
+                    className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    Find users to follow
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg mb-4">No posts yet</p>
+                  <Link
+                    to="/new"
+                    className="px-6 py-3 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    Create your first post
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
 
-        {/* Posts List */}
-        {state.posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
+          {/* Posts List */}
+          {state.posts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
 
-        {/* Loading Spinner */}
-        {state.loading && (
-          <div
-            className="flex justify-center py-8"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="sr-only">Loading more posts...</span>
-          </div>
-        )}
+          {/* Loading Spinner */}
+          {state.loading && (
+            <div
+              className="flex justify-center py-8"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="sr-only">Loading more posts...</span>
+            </div>
+          )}
 
-        {/* End Message */}
-        {!state.loading && !state.hasMore && state.posts.length > 0 && (
-          <div className="py-8 text-center text-gray-500">
-            You're all caught up!
-          </div>
-        )}
+          {/* End Message */}
+          {!state.loading && !state.hasMore && state.posts.length > 0 && (
+            <div className="py-8 text-center text-gray-500">
+              You're all caught up!
+            </div>
+          )}
 
-        {/* Intersection Observer Target */}
-        <div ref={observerTarget} className="h-4" />
+          {/* Intersection Observer Target */}
+          <div ref={observerTarget} className="h-4" />
+        </div>
       </main>
     </div>
   );
