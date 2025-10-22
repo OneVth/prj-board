@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { MessageCircle } from "lucide-react";
 import { userService } from "../services/userService";
 import { LoadingSpinner, PostCard, Header } from "../components";
 import UserListModal from "../components/user/UserListModal";
-import { formatDate } from "../utils/dateFormat";
+import { formatDate, formatTime } from "../utils/dateFormat";
 import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../types/user";
 import type { Post } from "../types/post";
+import type { Comment } from "../types/comment";
 
 function Profile() {
   const { userId } = useParams<{ userId: string }>();
@@ -15,7 +17,9 @@ function Profile() {
   const { user: currentUser, accessToken } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "comments">("posts");
   const [followLoading, setFollowLoading] = useState(false);
@@ -47,7 +51,26 @@ function Profile() {
     };
 
     loadUserData();
-  }, [userId]);
+  }, [userId, accessToken]);
+
+  // Load comments when switching to comments tab
+  useEffect(() => {
+    const loadComments = async () => {
+      if (activeTab === "comments" && userId && comments.length === 0) {
+        setCommentsLoading(true);
+        try {
+          const userComments = await userService.getUserComments(userId, 50);
+          setComments(userComments);
+        } catch (error) {
+          console.error("Failed to load comments:", error);
+        } finally {
+          setCommentsLoading(false);
+        }
+      }
+    };
+
+    loadComments();
+  }, [activeTab, userId, comments.length]);
 
   const handleFollowToggle = async () => {
     if (!userId || !accessToken || !user) return;
@@ -215,8 +238,43 @@ function Profile() {
             )}
           </div>
         ) : (
-          <div className="py-12 text-center text-gray-500">
-            <p>Comments view coming soon...</p>
+          <div>
+            {commentsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : comments.length === 0 ? (
+              <div className="py-12 text-center text-gray-500">
+                <p>No comments yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="py-4">
+                    {/* Comment Content */}
+                    <div className="mb-3">
+                      <p className="text-white whitespace-pre-wrap">{comment.content}</p>
+                    </div>
+
+                    {/* Comment Meta */}
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <Link
+                        to={`/article/${comment.postId}`}
+                        className="flex items-center gap-2 hover:text-purple-400 transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>View post</span>
+                      </Link>
+                      <div className="flex items-center gap-3">
+                        <span>{formatTime(comment.createdAt)}</span>
+                        <span>•</span>
+                        <span>❤️ {comment.likes}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         </div>
