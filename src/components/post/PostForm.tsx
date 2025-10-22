@@ -42,6 +42,7 @@ function PostForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const TITLE_MAX_LENGTH = 200;
+  const CONTENT_MAX_LENGTH = 500;
 
   // 이미지 선택 핸들러
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,9 +159,14 @@ function PostForm({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="What's on your mind?"
+              maxLength={CONTENT_MAX_LENGTH}
               className="w-full h-64 bg-transparent text-lg text-white placeholder-gray-500 focus:outline-none resize-none border-none focus:ring-0 transition-colors"
               disabled={isSubmitting}
             />
+            {/* Character Counter */}
+            <div className="text-right text-xs text-gray-500 mt-2">
+              {content.length} / {CONTENT_MAX_LENGTH}
+            </div>
           </div>
 
           {/* Image Preview */}
