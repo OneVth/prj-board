@@ -41,7 +41,13 @@ async def close_mongo_connection():
 
 
 async def create_indexes():
-    """컬렉션별 인덱스 생성"""
+    """
+    컬렉션별 인덱스 생성
+
+    Performance Optimization: Compound Indexes for Query Performance
+    - Posts collection: 정렬 최적화를 위한 복합 인덱스
+    - Comments collection: $lookup JOIN 최적화
+    """
     if database is None:
         return
 
@@ -50,8 +56,18 @@ async def create_indexes():
     comments_collection = database["comments"]
 
     # Posts 인덱스
+    # Single field indexes (backward compatibility)
     await posts_collection.create_index([("created_at", -1)])
     await posts_collection.create_index([("likes", -1)])
+
+    # Compound indexes for sorting optimization
+    # For date + likes sorting (covers both date-only and likes-only queries)
+    await posts_collection.create_index([("created_at", -1), ("likes", -1)])
+
+    # For author_id lookup (used in aggregation pipeline)
+    await posts_collection.create_index([("author_id", 1)])
+
+    # Full-text search index
     await posts_collection.create_index([("title", "text"), ("content", "text")])
 
     # Users 인덱스
@@ -59,10 +75,14 @@ async def create_indexes():
     await users_collection.create_index("username", unique=True)
 
     # Comments 인덱스
-    await comments_collection.create_index("post_id")
+    # Compound index for $lookup optimization (post_id + created_at)
+    # Optimizes: JOIN + comment ordering in a single index
+    await comments_collection.create_index([("post_id", 1), ("created_at", -1)])
+
+    # Single field index for backward compatibility
     await comments_collection.create_index([("created_at", 1)])
 
-    print("[SUCCESS] Indexes created successfully!")
+    print("[SUCCESS] Indexes created successfully (including compound indexes)!")
 
 
 def get_database() -> AsyncIOMotorDatabase:
