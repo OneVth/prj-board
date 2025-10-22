@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { PostFormData } from "../../types/post";
+import { fileToBase64, validateImageFile, createThumbnail } from "../../utils/imageUtils";
 
 // ============================================
 // Props 타입 정의
@@ -8,6 +9,7 @@ import type { PostFormData } from "../../types/post";
 interface PostFormProps {
   initialTitle?: string;
   initialContent?: string;
+  initialImage?: string | null;
   onSubmit: (data: PostFormData) => Promise<void>;
   onCancel: () => void;
   submitButtonText: string;
@@ -22,6 +24,7 @@ interface PostFormProps {
 function PostForm({
   initialTitle = "",
   initialContent = "",
+  initialImage = null,
   onSubmit,
   onCancel: _onCancel,
   submitButtonText: _submitButtonText,
@@ -30,8 +33,57 @@ function PostForm({
 }: PostFormProps) {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
+  const [image, setImage] = useState<string | null>(initialImage);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const TITLE_MAX_LENGTH = 200;
+
+  // 이미지 선택 핸들러
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageError(null);
+    setProcessingImage(true);
+
+    try {
+      // Validate file
+      const validation = validateImageFile(file, 5);
+      if (!validation.valid) {
+        setImageError(validation.error || "Invalid image file");
+        setProcessingImage(false);
+        return;
+      }
+
+      // Convert to base64
+      const base64 = await fileToBase64(file);
+
+      // Create thumbnail
+      const thumbnail = await createThumbnail(base64);
+
+      setImage(thumbnail);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Failed to process image");
+    } finally {
+      setProcessingImage(false);
+    }
+  };
+
+  // 이미지 제거 핸들러
+  const handleRemoveImage = () => {
+    setImage(null);
+    setImageError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // 이미지 버튼 클릭 핸들러
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
+  };
 
   // 폼 제출 핸들러
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,6 +96,7 @@ function PostForm({
     await onSubmit({
       title: title.trim(),
       content: content.trim(),
+      image: image,
     });
   };
 
@@ -93,15 +146,57 @@ function PostForm({
           />
         </div>
 
-        {/* Icon Buttons (Placeholder for future features) */}
+        {/* Image Preview */}
+        {image && (
+          <div className="mb-6 relative">
+            <img
+              src={image}
+              alt="Preview"
+              className="w-full rounded-lg border border-gray-800"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              disabled={isSubmitting || processingImage}
+              className="absolute top-2 right-2 p-2 bg-black/70 rounded-full hover:bg-black/90 transition-colors"
+              title="Remove image"
+            >
+              <span className="text-xl">❌</span>
+            </button>
+          </div>
+        )}
+
+        {/* Image Error */}
+        {imageError && (
+          <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+            {imageError}
+          </div>
+        )}
+
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/gif"
+          onChange={handleImageSelect}
+          className="hidden"
+          disabled={isSubmitting || processingImage}
+        />
+
+        {/* Icon Buttons */}
         <div className="flex items-center gap-4 pt-4 border-t border-gray-800">
           <button
             type="button"
-            className="p-2 text-gray-500 hover:text-gray-300 transition-colors"
-            disabled
-            title="Image upload (coming soon)"
+            onClick={handleImageButtonClick}
+            disabled={isSubmitting || processingImage}
+            className={`p-2 transition-colors ${
+              processingImage
+                ? "text-gray-700 cursor-not-allowed"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+            title={processingImage ? "Processing..." : "Upload image"}
           >
-            <span className="text-2xl">🖼️</span>
+            <span className="text-2xl">{processingImage ? "⏳" : "🖼️"}</span>
           </button>
           <button
             type="button"

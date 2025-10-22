@@ -44,7 +44,7 @@ async def post_helper(post: dict) -> dict:
     # 작성자 정보 조회
     author_id_str, author_username = await get_author_info(post.get("author_id"))
 
-    return {
+    result = {
         "id": str(post["_id"]),
         "title": post["title"],
         "content": post["content"],
@@ -54,6 +54,12 @@ async def post_helper(post: dict) -> dict:
         "author_id": author_id_str,
         "author_username": author_username,
     }
+
+    # image 필드가 있으면 추가
+    if "image" in post and post["image"]:
+        result["image"] = post["image"]
+
+    return result
 
 
 async def comment_helper(comment: dict) -> dict:

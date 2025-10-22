@@ -389,6 +389,17 @@ function Article() {
           </p>
         </article>
 
+        {/* Post Image */}
+        {post.image && (
+          <div className="mb-6">
+            <img
+              src={post.image}
+              alt={post.title}
+              className="w-full rounded-lg border border-gray-800"
+            />
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center gap-6 py-4 border-y border-gray-800 mb-6">
           <button

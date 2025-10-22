@@ -57,6 +57,17 @@ function PostCard({ post }: PostCardProps) {
         {/* Content Preview */}
         <p className="text-gray-300 mb-3 line-clamp-2">{post.content}</p>
 
+        {/* Image Thumbnail */}
+        {post.image && (
+          <div className="mb-3">
+            <img
+              src={post.image}
+              alt={post.title}
+              className="w-full rounded-lg border border-gray-800 max-h-96 object-cover"
+            />
+          </div>
+        )}
+
         {/* Engagement Bar */}
         <div className="flex items-center gap-4 text-gray-500 text-sm">
           <span>❤️ {post.likes}</span>

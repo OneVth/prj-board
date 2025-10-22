@@ -134,6 +134,7 @@ function Edit() {
         <PostForm
           initialTitle={post.title}
           initialContent={post.content}
+          initialImage={post.image}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           submitButtonText="Update"

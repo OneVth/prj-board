@@ -115,6 +115,7 @@ async def get_posts(
                 "comment_count": 1,
                 "author_id": "$author_id",
                 "author_username": 1,
+                "image": 1,  # 이미지 필드 포함
             }
         },
     ]
@@ -170,6 +171,10 @@ async def create_post(
         "author_id": current_user.user_id,
     }
 
+    # 이미지가 있으면 추가
+    if post.image:
+        new_post["image"] = post.image
+
     result = await posts_collection.insert_one(new_post)
     created_post = await posts_collection.find_one({"_id": result.inserted_id})
 
@@ -206,6 +211,8 @@ async def update_post(
         update_data["title"] = post.title
     if post.content is not None:
         update_data["content"] = post.content
+    if post.image is not None:
+        update_data["image"] = post.image
 
     if not update_data:
         raise BadRequestException("No fields to update")
